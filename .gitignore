@@ -1,0 +1,25 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+
+# Node / Python
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Simulator binary output (rebuildable)
+.simbin/
+
+# Secrets and local state
+.env
+.env.*
+*.env
+.opencode/
+opencode.local.json
+auth.json
+*.log
+.DS_Store
+src/esp32/web_assets.h

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "small_model": "opencode-go/deepseek-v4.1-flash",
+  "enabled_providers": [
+    "opencode-go"
+  ],
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "opencode-go": {
+      "options": {
+        "apiKey": "{env:OPENCODE_GO_API_KEY}"
+      }
+    }
+  },
+  "permission": {
+    "question": "deny",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "doom_loop": "deny",
+    "external_directory": "allow",
+    "edit": {
+      "*": "allow",
+      "opencode.json": "deny",
+      "AGENTS.md": "deny",
+      "docs/DESIGN.md": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "git push*": "deny",
+      "git remote*": "deny",
+      "git reset --hard*": "deny",
+      "git checkout main*": "deny",
+      "gh *": "deny",
+      "env": "deny",
+      "env *": "deny",
+      "printenv*": "deny",
+      "set": "deny",
+      "export": "deny",
+      "sudo *": "deny",
+      "git commit*": "deny",
+      "git config*": "deny",
+      "git -c*": "deny",
+      "git checkout -b*": "deny",
+      "git branch*": "deny",
+      "git rebase*": "deny",
+      "git stash*": "deny",
+      "*CPR_GH_TOKEN*": "deny",
+      "*OPENCODE_GO_API_KEY*": "deny",
+      "*GITHUB_TOKEN*": "deny",
+      "curl*api.github.com*": "deny"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "/proc/*": "deny",
+      "/home/box/.config/*": "deny",
+      "/home/box/.local/share/opencode/*": "deny"
+    }
+  },
+  "agent": {
+    "build": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "high"
+    },
+    "plan": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "high"
+    },
+    "general": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "high"
+    },
+    "explore": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "low"
+    },
+    "title": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "low"
+    },
+    "summary": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "low"
+    },
+    "compaction": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "variant": "high"
+    }
+  }
+}
