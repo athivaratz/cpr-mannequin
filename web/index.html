@@ -37,10 +37,19 @@
     <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
     </symbol>
+    <symbol id="i-arrow-down-to-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 17V3" />
+      <path d="m6 11 6 6 6-6" />
+      <path d="M19 21H5" />
+    </symbol>
     <symbol id="i-arrow-up-from-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m18 9-6-6-6 6" />
       <path d="M12 3v14" />
       <path d="M5 21h14" />
+    </symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m12 14 4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
     </symbol>
     <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
@@ -695,6 +704,14 @@
               </button>
             </div>
 
+            <div class="row" id="thRow">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-gauge"></use></svg></span>
+              <span class="row-label">เกณฑ์</span>
+              <button type="button" class="row-action" id="openThBtn" aria-label="ตั้งเกณฑ์น้ำหนัก">
+                <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </button>
+            </div>
+
             <div class="row">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-info"></use></svg></span>
               <span class="row-label">เกี่ยวกับ</span>
@@ -739,6 +756,107 @@
         <div class="calib-status" id="calibStatus" role="status" hidden></div>
         <div class="calib-actions" id="calibActions"></div>
       </div>
+    </section>
+
+    <section class="sheet sheet-th" id="sheetTh" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="thTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <h2 id="thTitle">เกณฑ์</h2>
+        </div>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดเกณฑ์">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body" id="thBody">
+        <div class="th-live">
+          <span class="th-live-kg"><span id="thLiveKg">—</span><small>กก.</small></span>
+          <span class="th-live-last" id="thLiveLast">ล่าสุด —</span>
+        </div>
+
+        <div class="settings-list">
+          <div class="settings-group">
+            <div class="row th-row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg></span>
+              <span class="row-label">ผ่าน</span>
+              <div class="th-stepper">
+                <button type="button" class="th-step-btn" data-th-step="good" data-th-dir="-1" aria-label="ลดผ่าน">−</button>
+                <span class="th-step-value"><span id="thValGood">6.0</span><small>กก.</small></span>
+                <button type="button" class="th-step-btn" data-th-step="good" data-th-dir="1" aria-label="เพิ่มผ่าน">+</button>
+              </div>
+            </div>
+
+            <div class="row th-row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-arrow-down-to-line"></use></svg></span>
+              <span class="row-label">ลึกไป</span>
+              <div class="th-stepper">
+                <button type="button" class="th-step-btn" data-th-step="deep" data-th-dir="-1" aria-label="ลดลึกไป">−</button>
+                <span class="th-step-value"><span id="thValDeep">12.0</span><small>กก.</small></span>
+                <button type="button" class="th-step-btn" data-th-step="deep" data-th-dir="1" aria-label="เพิ่มลึกไป">+</button>
+              </div>
+            </div>
+
+            <div class="row th-row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"></use></svg></span>
+              <span class="row-label">เกินแรง</span>
+              <div class="th-stepper">
+                <button type="button" class="th-step-btn" data-th-step="over" data-th-dir="-1" aria-label="ลดเกินแรง">−</button>
+                <span class="th-step-value"><span id="thValOver">18.0</span><small>กก.</small></span>
+                <button type="button" class="th-step-btn" data-th-step="over" data-th-dir="1" aria-label="เพิ่มเกินแรง">+</button>
+              </div>
+            </div>
+
+            <div class="row th-row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-hand"></use></svg></span>
+              <span class="row-label">เริ่มกด</span>
+              <div class="th-stepper">
+                <button type="button" class="th-step-btn" data-th-step="contact" data-th-dir="-1" aria-label="ลดเริ่มกด">−</button>
+                <span class="th-step-value"><span id="thValContact">0.5</span><small>กก.</small></span>
+                <button type="button" class="th-step-btn" data-th-step="contact" data-th-dir="1" aria-label="เพิ่มเริ่มกด">+</button>
+              </div>
+            </div>
+
+            <div class="row th-row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up-from-line"></use></svg></span>
+              <span class="row-label">คืนตัว</span>
+              <div class="th-stepper">
+                <button type="button" class="th-step-btn" data-th-step="recoil" data-th-dir="-1" aria-label="ลดคืนตัว">−</button>
+                <span class="th-step-value"><span id="thValRecoil">0.2</span><small>กก.</small></span>
+                <button type="button" class="th-step-btn" data-th-step="recoil" data-th-dir="1" aria-label="เพิ่มคืนตัว">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="row">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-activity"></use></svg></span>
+              <span class="row-label">ความไว</span>
+              <div class="seg" role="group" aria-label="เลือกความไว">
+                <button type="button" class="seg-btn th-filt-btn" data-th-filt="0.4" aria-pressed="false">นิ่ง</button>
+                <button type="button" class="seg-btn th-filt-btn" data-th-filt="0.7" aria-pressed="false">ปกติ</button>
+                <button type="button" class="seg-btn th-filt-btn" data-th-filt="1.0" aria-pressed="false">ไว</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="th-bar" id="thBar">
+          <div class="th-zones" id="thZones"></div>
+          <span class="th-marker" id="thMarker" aria-hidden="true"></span>
+        </div>
+        <div class="th-legend" id="thLegend"></div>
+
+        <p class="th-help">แผ่นกดยุบบนหนังยางราว 3 ซม. ก่อนถึงเครื่องชั่ง ช่วงนั้นค่าจะเกือบ 0 ตั้งเริ่มกดกับคืนตัวให้ต่ำไว้</p>
+
+        <div class="th-sps" id="thSps" hidden>
+          <span id="thSpsText"></span>
+          <button type="button" class="info-btn tiny" data-info="sps" aria-label="ข้อมูลเซนเซอร์">
+            <svg class="ic" aria-hidden="true"><use href="#i-info"></use></svg>
+          </button>
+        </div>
+      </div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-ghost" id="thResetBtn">ค่าเริ่มต้น</button>
+      </footer>
     </section>
 
     <section class="sheet sheet-info" id="sheetInfo" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="sheetInfoTitle" hidden>

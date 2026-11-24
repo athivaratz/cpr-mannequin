@@ -44,6 +44,18 @@
 
   const HANDS_OFF_MS = 2000;
 
+  const TH_DEFAULTS = {
+    good: 6.0,
+    deep: 12.0,
+    over: 18.0,
+    contact: 0.5,
+    recoil: 0.2,
+    filt: 1.0
+  };
+  const TH_STEP = { good: 0.5, deep: 0.5, over: 0.5, contact: 0.1, recoil: 0.1 };
+  const TH_PRESETS = [0.4, 0.7, 1.0];
+  const TH_EPS = 1e-6;
+
   const state = {
     transport: null,
     transportKind: '',
@@ -95,7 +107,8 @@
     metricTimers: [],
     bannerTimers: new Map(),
     staggerSeq: 0,
-    swapTimer: null
+    swapTimer: null,
+    th: null
   };
 
   const els = {};
@@ -114,6 +127,10 @@
       'depthGraph', 'graphWrap', 'graphEmpty', 'pauseBanner', 'pauseText',
       'breathBanner', 'warnSps', 'warnHx', 'warnOverload', 'toast', 'sheetLayer',
       'sheetConnect', 'sheetSummary', 'sheetCalib', 'sheetSettings', 'sheetInfo',
+      'sheetTh', 'thBody', 'thRow', 'openThBtn', 'thLiveKg', 'thLiveLast',
+      'thBar', 'thZones', 'thLegend', 'thMarker', 'thSps', 'thSpsText',
+      'thValGood', 'thValDeep', 'thValOver', 'thValContact', 'thValRecoil',
+      'thResetBtn',
       'connectWs', 'connectSerial', 'serialHint', 'connectDemo', 'demoSelect',
       'connectDisconnectRow', 'connectDisconnectBtn',
       'summaryContent', 'summaryEmpty', 'summaryFoot', 'scoreRing', 'scoreValue',
@@ -134,11 +151,14 @@
     els.themeButtons = $$('[data-theme-set]');
     els.countBlocks = $$('[data-count]');
     els.navButtons = $$('[data-nav]');
+    els.thStepButtons = $$('[data-th-step]');
+    els.thFiltButtons = $$('[data-th-filt]');
     els.sheetMap = {
       connect: els.sheetConnect,
       summary: els.sheetSummary,
       settings: els.sheetSettings,
       calib: els.sheetCalib,
+      th: els.sheetTh,
       info: els.sheetInfo
     };
   }
@@ -259,6 +279,229 @@
 
   function depthText(value) {
     return has(value) ? Number(value).toFixed(1) : '—';
+  }
+
+  function roundTh(value) {
+    return Math.round(Number(value) * 10) / 10;
+  }
+
+  function thFromCfg(cfg) {
+    const pick = (key) => has(cfg && cfg[key]) ? roundTh(cfg[key]) : TH_DEFAULTS[key];
+    return {
+      good: pick('gkg'),
+      deep: pick('dkg'),
+      over: pick('ovkg'),
+      contact: pick('ckg'),
+      recoil: pick('rkg'),
+      filt: has(cfg && cfg.flt) ? cfg.flt : TH_DEFAULTS.filt
+    };
+  }
+
+  function thValid(t) {
+    if (!t) return false;
+    if (t.contact < 0.1 - TH_EPS || t.contact > 10 + TH_EPS) return false;
+    if (t.good < 0.5 - TH_EPS) return false;
+    if (t.over > 60 + TH_EPS) return false;
+    if (t.recoil < -TH_EPS || t.recoil >= t.contact - TH_EPS) return false;
+    if (t.contact >= t.good - TH_EPS) return false;
+    if (t.good >= t.deep - TH_EPS) return false;
+    if (t.deep >= t.over - TH_EPS) return false;
+    if (t.filt < 0.2 - TH_EPS || t.filt > 1 + TH_EPS) return false;
+    return true;
+  }
+
+  function thStepValid(t, field, dir) {
+    const step = TH_STEP[field];
+    if (!step) return false;
+    const candidate = Object.assign({}, t);
+    candidate[field] = roundTh(t[field] + dir * step);
+    return thValid(candidate);
+  }
+
+  function thShake() {
+    const body = els.thBody;
+    if (!body) return;
+    body.classList.remove('is-shake');
+    void body.offsetWidth;
+    body.classList.add('is-shake');
+    setTimeout(() => body.classList.remove('is-shake'), 330);
+  }
+
+  function thBuildBar(values) {
+    if (!els.thZones || !els.thLegend) return;
+    const max = Math.max(1, values.over + 2);
+    const zones = [
+      { to: values.contact, cls: 'is-recoil', label: 'คืนตัว' },
+      { to: values.good, cls: 'is-contact', label: 'เริ่มกด' },
+      { to: values.deep, cls: 'is-good', label: 'ผ่าน' },
+      { to: values.over, cls: 'is-deep', label: 'ลึกไป' },
+      { to: max, cls: 'is-over', label: 'เกินแรง' }
+    ];
+    let zonesHtml = '';
+    let legendHtml = '';
+    let from = 0;
+    zones.forEach((zone) => {
+      const to = clamp(zone.to, 0, max);
+      const width = clamp((to - from) / max, 0, 1) * 100;
+      zonesHtml += '<span class="th-zone ' + zone.cls + '" style="width:' +
+        width.toFixed(2) + '%"></span>';
+      legendHtml += '<span><i class="' + zone.cls + '"></i>' + zone.label + '</span>';
+      from = Math.max(from, to);
+    });
+    els.thZones.innerHTML = zonesHtml;
+    els.thLegend.innerHTML = legendHtml;
+  }
+
+  function thRender() {
+    const th = state.th;
+    if (!th) return;
+    const v = th.values;
+    setText(els.thValGood, v.good.toFixed(1));
+    setText(els.thValDeep, v.deep.toFixed(1));
+    setText(els.thValOver, v.over.toFixed(1));
+    setText(els.thValContact, v.contact.toFixed(1));
+    setText(els.thValRecoil, v.recoil.toFixed(1));
+
+    els.thStepButtons.forEach((button) => {
+      const field = button.dataset.thStep;
+      const dir = Number(button.dataset.thDir);
+      const allowed = thStepValid(v, field, dir);
+      button.disabled = !allowed;
+      button.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+    });
+
+    let nearest = TH_PRESETS[0];
+    let nearestDist = Infinity;
+    TH_PRESETS.forEach((preset) => {
+      const dist = Math.abs(v.filt - preset);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = preset;
+      }
+    });
+    els.thFiltButtons.forEach((button) => {
+      const active = Math.abs(parseFloat(button.dataset.thFilt) - nearest) < TH_EPS;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    thBuildBar(v);
+    thUpdateLive();
+  }
+
+  function thUpdateLive() {
+    const th = state.th;
+    if (!th) return;
+    const frame = state.frame;
+    const kg = frame && has(frame.kg) ? frame.kg : null;
+    setText(els.thLiveKg, kg == null ? '—' : Number(kg).toFixed(1));
+
+    const last = state.lastCompression;
+    setText(els.thLiveLast, 'ล่าสุด ' +
+      (last && has(last.pk) ? toDisplay(last.pk).toFixed(1) : '—'));
+
+    const max = Math.max(1, th.values.over + 2);
+    const liveKg = kg == null ? 0 : kg;
+    if (els.thBar && els.thMarker) {
+      const width = els.thBar.clientWidth;
+      const travel = Math.max(0, width - 4);
+      const fraction = clamp(liveKg / max, 0, 1);
+      els.thMarker.style.transform = 'translateX(' + (fraction * travel).toFixed(1) + 'px)';
+    }
+
+    const sps = frame && has(frame.sps) ? frame.sps : 0;
+    const showSps = sps >= 1 && sps <= 20;
+    if (els.thSps) els.thSps.hidden = !showSps;
+    if (showSps) setText(els.thSpsText, 'อ่าน ' + sps + ' ครั้ง/วิ');
+  }
+
+  function thSchedule() {
+    const th = state.th;
+    if (!th) return;
+    th.dirty = true;
+    clearTimeout(th.timer);
+    th.timer = setTimeout(thFlush, 400);
+  }
+
+  function thFlush() {
+    const th = state.th;
+    if (!th || !th.dirty) return;
+    clearTimeout(th.timer);
+    th.timer = null;
+    if (!state.transport || state.status === 'off') {
+      th.dirty = false;
+      showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
+      return;
+    }
+    const v = th.values;
+    th.dirty = false;
+    th.awaiting = true;
+    state.transport.send('set th ' + v.good.toFixed(1) + ' ' + v.deep.toFixed(1) +
+      ' ' + v.over.toFixed(1) + ' ' + v.contact.toFixed(1) + ' ' +
+      v.recoil.toFixed(1) + ' ' + v.filt.toFixed(2));
+  }
+
+  function thReset() {
+    if (!state.th) return;
+    clearTimeout(state.th.timer);
+    state.th.timer = null;
+    state.th.values = Object.assign({}, TH_DEFAULTS);
+    state.th.dirty = false;
+    thRender();
+    if (!state.transport || state.status === 'off') {
+      showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
+      return;
+    }
+    state.th.awaiting = true;
+    state.transport.send('set reset');
+  }
+
+  function thHandleAck(msg) {
+    const th = state.th;
+    if (!th || !msg || msg.cmd !== 'set') return false;
+    if (state.sheet !== 'th' && !th.awaiting && !th.dirty) return false;
+    if (msg.ok) {
+      th.awaiting = false;
+      showToast('บันทึกแล้ว', 'ok');
+    } else {
+      th.awaiting = false;
+      th.dirty = false;
+      clearTimeout(th.timer);
+      th.timer = null;
+      if (th.lastCfg) th.values = Object.assign({}, th.lastCfg);
+      thRender();
+      showToast('บันทึกไม่ได้', 'bad');
+      thShake();
+    }
+    return true;
+  }
+
+  function refreshThConfig() {
+    const th = state.th;
+    if (!th) return;
+    const snapshot = thFromCfg(state.cfg);
+    th.lastCfg = snapshot;
+    if (th.awaiting) {
+      th.awaiting = false;
+      if (th.dirty) return;
+    } else if (th.dirty) {
+      return;
+    }
+    th.values = Object.assign({}, snapshot);
+    thRender();
+  }
+
+  function openTh() {
+    clearTimeout(state.th && state.th.timer);
+    state.th = {
+      values: thFromCfg(state.cfg),
+      lastCfg: thFromCfg(state.cfg),
+      dirty: false,
+      awaiting: false,
+      timer: null
+    };
+    openSheet('th');
+    thRender();
   }
 
   function readColors() {
@@ -523,6 +766,41 @@
 
     emitAck(cmd, line) {
       let msg = 'ok';
+      if (cmd === 'set') {
+        const text = String(line || '');
+        let ack = null;
+        if (/\bset\s+reset\b/i.test(text)) {
+          this.cfg = Object.assign({}, this.cfg || {}, {
+            gkg: TH_DEFAULTS.good,
+            dkg: TH_DEFAULTS.deep,
+            ovkg: TH_DEFAULTS.over,
+            ckg: TH_DEFAULTS.contact,
+            rkg: TH_DEFAULTS.recoil,
+            flt: TH_DEFAULTS.filt
+          });
+          setTimeout(() => this.emitCfg(), 30);
+          ack = { ty: 'ack', cmd: 'set', ok: 1, msg: 'ok' };
+        } else {
+          const match = text.match(/\bset\s+th\b(.*)/i);
+          const nums = match ? (match[1].match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat) : [];
+          if (match && nums.length >= 6 && this.cfg) {
+            this.cfg = Object.assign({}, this.cfg, {
+              gkg: nums[0],
+              dkg: nums[1],
+              ovkg: nums[2],
+              ckg: nums[3],
+              rkg: nums[4],
+              flt: nums[5]
+            });
+            setTimeout(() => this.emitCfg(), 30);
+            ack = { ty: 'ack', cmd: 'set', ok: 1, msg: 'ok' };
+          } else {
+            ack = { ty: 'ack', cmd: 'set', ok: 0, msg: 'bad syntax' };
+          }
+        }
+        this.onMessage && this.onMessage(ack, { instant: false, at: null });
+        return;
+      }
       if (cmd === 'metro') msg = /\bon\b/i.test(line) ? 'on' : 'off';
       if (cmd === 'config') {
         this.emitCfg();
@@ -843,6 +1121,7 @@
     state.profile = patched.prof === 1 ? 'child' : 'adult';
     refreshProfileButtons();
     refreshConfigUI();
+    refreshThConfig();
   }
 
   function applyFrame(msg, meta) {
@@ -1000,6 +1279,10 @@
       openSettings();
       return;
     }
+    if (sheet === 'th') {
+      openTh();
+      return;
+    }
     if (sheet === 'connect') {
       openConnect();
       return;
@@ -1015,6 +1298,7 @@
   }
 
   function handleAck(msg) {
+    if (thHandleAck(msg)) return;
     if (calHandleAck(msg)) return;
     if (!msg.ok) {
       showToast(msg.msg || 'คำสั่งไม่สำเร็จ', 'bad');
@@ -1062,8 +1346,14 @@
       els.rateBand.style.width = (width * 100).toFixed(2) + '%';
     }
     refreshHandVisibility();
+    refreshThVisibility();
     buildRuler(info);
     refreshInfoPanels();
+  }
+
+  function refreshThVisibility() {
+    if (!els.thRow) return;
+    els.thRow.hidden = !!(state.cfg && state.cfg.board === 'nano');
   }
 
   function refreshHandVisibility() {
@@ -1644,6 +1934,7 @@
     updateCount();
     updateBanners();
     updateCta();
+    if (state.sheet === 'th') thUpdateLive();
     if (state.graphDirty) {
       drawGraph();
       state.graphDirty = false;
@@ -1936,7 +2227,9 @@
     hand: {
       title: 'ตำแหน่งมือ',
       icon: 'hand',
-      body: () => '<p>วางส้นมือกลางหน้าอก บนครึ่งล่างของกระดูกหน้าอก ไฟตำแหน่งบนหุ่นจะติดเมื่อวางถูก</p>'
+      body: () => (state.cfg && state.cfg.hand === 0
+        ? '<p>วางส้นมือกลางหน้าอก บนครึ่งล่างของกระดูกหน้าอก</p>'
+        : '<p>วางส้นมือกลางหน้าอก บนครึ่งล่างของกระดูกหน้าอก ไฟตำแหน่งบนหุ่นจะติดเมื่อวางถูก</p>')
     },
     count: {
       title: 'การนับ',
@@ -1951,7 +2244,7 @@
     sps: {
       title: 'เซนเซอร์อ่านช้า',
       icon: 'triangle-alert',
-      body: () => '<p>เซนเซอร์แรงอ่านได้แค่ 10 ครั้งต่อวินาที ค่าที่เห็นจะคลาดเคลื่อน แก้ได้โดยย้ายขา RATE ของบอร์ด HX711 ไปต่อไฟเลี้ยง ดูวิธีทำในคู่มือหัวข้อแก้ปัญหา</p>'
+      body: () => '<p>10 ครั้งต่อวินาทีเป็นค่าปกติของบอร์ด HX711 ทั่วไป ถ้าอยากให้จับการคืนตัวได้ไวขึ้น ย้ายขา RATE ไปต่อไฟเลี้ยงจะอ่านได้ 80 ครั้งต่อวินาที</p>'
     },
     score: {
       title: 'คะแนนมาจากไหน',
@@ -2475,6 +2768,36 @@
       });
     }
     if (els.openCalibBtn) els.openCalibBtn.addEventListener('click', openCalib);
+    if (els.openThBtn) els.openThBtn.addEventListener('click', openTh);
+    if (els.thResetBtn) els.thResetBtn.addEventListener('click', thReset);
+
+    els.thStepButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!state.th || button.disabled) return;
+        const field = button.dataset.thStep;
+        const dir = Number(button.dataset.thDir);
+        const step = TH_STEP[field];
+        if (!step) return;
+        const candidate = Object.assign({}, state.th.values);
+        candidate[field] = roundTh(candidate[field] + dir * step);
+        if (!thValid(candidate)) return;
+        state.th.values = candidate;
+        thRender();
+        thSchedule();
+      });
+    });
+
+    els.thFiltButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!state.th) return;
+        const filt = parseFloat(button.dataset.thFilt);
+        if (!has(filt)) return;
+        state.th.values.filt = filt;
+        thRender();
+        thSchedule();
+      });
+    });
+
     if (els.csvBtn) els.csvBtn.addEventListener('click', downloadCsv);
     if (els.againBtn) {
       els.againBtn.addEventListener('click', () => {
@@ -2543,7 +2866,8 @@
       }), 'demo');
     } else if (location.hostname === '192.168.4.1') {
       attachTransport(new WsTransport(), 'ws');
-    } else if ((state.opts.sheet === 'summary' || state.opts.sheet === 'calib') && isLocalPreview()) {
+    } else if ((state.opts.sheet === 'summary' || state.opts.sheet === 'calib' ||
+                state.opts.sheet === 'th') && isLocalPreview()) {
       attachTransport(new DemoSocket({
         id: 'good',
         speed: state.opts.speed,
@@ -2563,6 +2887,8 @@
         }, 120);
       } else if (state.opts.sheet === 'settings') {
         setTimeout(openSettings, 120);
+      } else if (state.opts.sheet === 'th') {
+        setTimeout(openTh, 120);
       } else if (state.opts.sheet === 'info') {
         setTimeout(() => openInfo(state.opts.info || 'depth'), 120);
       }
