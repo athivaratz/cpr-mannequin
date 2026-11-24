@@ -55,3 +55,12 @@ and command words in flash (`cpr_json.cpp`, `cpr_command.cpp`) and the Nano
 sketch copies its short ack strings out of flash before calling `jsonAck`. The
 native build and the ESP32 build use the same code paths without the AVR
 attribute. The Nano report is 1 366 bytes of data+bss.
+
+## P4 calibration wizard live counter
+
+`PROTOCOL.md` has no message for the calibration recorder's live `calCount()`,
+so the dashboard cannot show the exact number of (kg, mm) pairs while
+`cal start` is running. The wizard counts `c` (compression) events since
+`cal start` and labels the number "ครั้งที่กด". The device still records every
+sample pair and `cal finish` uses the full set; only the live display is
+approximate.

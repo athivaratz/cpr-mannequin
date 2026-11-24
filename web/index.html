@@ -1,14 +1,594 @@
 <!doctype html>
-<html lang="th">
+<html lang="th" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>หุ่นฝึก CPR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0B1220">
+  <title>หุ่นฝึก CPR · แผงฝึกการกดหน้าอก</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234F8CFF'/%3E%3Cpath d='M12 19s-6-4.2-6-8.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 6 2.6C18 14.8 12 19 12 19Z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="app.css">
+  <script>
+    (function () {
+      try {
+        var q = new URLSearchParams(location.search);
+        var t = q.get('theme');
+        if (t !== 'light' && t !== 'dark') t = localStorage.getItem('cpr-theme') || 'dark';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
 </head>
 <body>
-  <main>
-    <h1>แดชบอร์ดกำลังมา</h1>
-    <p>กำลังเตรียมหน้าจอแสดงผล</p>
-  </main>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-logo" viewBox="0 0 24 24">
+      <path d="M20.8 5.6a5.4 5.4 0 0 0-7.7 0L12 6.7l-1.1-1.1a5.4 5.4 0 0 0-7.7 7.7L12 22l8.8-8.7a5.4 5.4 0 0 0 0-7.7Z"/>
+      <path d="M3.5 12h4l1.6-3.2 2.4 6.4 1.8-4.1 1.2 2.3h5"/>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3.2"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 4.18 16.9l.06-.06A1.7 1.7 0 0 0 4.58 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.64 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.07 4.14l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8L19 12 8 5.6Z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.4"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24">
+      <path d="M9 18V6.3l10-2V16"/>
+      <circle cx="6.2" cy="18" r="2.8"/><circle cx="16.2" cy="16" r="2.8"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24">
+      <path d="M12 3.5v11.5"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20.5h14"/>
+    </symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24">
+      <path d="M20 11a8 8 0 1 0-2.35 6.35"/><path d="M20 4.5V11h-6.5"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24">
+      <path d="M3.6 9.4a13 13 0 0 1 16.8 0"/><path d="M7.1 13a8.4 8.4 0 0 1 9.8 0"/>
+      <path d="M10.2 16.5a4 4 0 0 1 3.6 0"/><circle class="dot" cx="12" cy="19.4" r="1"/>
+    </symbol>
+    <symbol id="i-usb" viewBox="0 0 24 24">
+      <path d="M9 7V4.2h6V7"/><rect x="7" y="7" width="10" height="5.2" rx="1.6"/>
+      <path d="M12 12.2v5.1a3.2 3.2 0 0 0 3.2 3.2"/><path d="M12 20.5h3.2"/>
+    </symbol>
+    <symbol id="i-demo" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.6"/><path d="M10.2 8.4v7.2l5.7-3.6-5.7-3.6Z"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24">
+      <path d="M12 3.6 21.6 20H2.4L12 3.6Z"/><path d="M12 9.2v5"/>
+      <circle class="dot" cx="12" cy="17.1" r="1"/>
+    </symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24">
+      <path d="M8.2 12.6V6.4a1.5 1.5 0 0 1 3 0V12"/>
+      <path d="M11.2 11V5.4a1.5 1.5 0 0 1 3 0V12"/>
+      <path d="M14.2 11V7a1.5 1.5 0 0 1 3 0v6.8"/>
+      <path d="M17.2 10.4a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-2.1a6 6 0 0 1-4.6-2.2l-3.1-3.9a1.6 1.6 0 0 1 2.4-2.1l1.8 2"/>
+    </symbol>
+    <symbol id="i-recoil" viewBox="0 0 24 24">
+      <path d="M12 19.5V6"/><path d="m6.3 11.7 5.7-5.7 5.7 5.7"/><path d="M5 21h14"/>
+    </symbol>
+    <symbol id="i-target" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4"/>
+      <circle class="dot" cx="12" cy="12" r="1.1"/>
+    </symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24">
+      <path d="M3.8 17.5a8.2 8.2 0 1 1 16.4 0"/><path d="m12 13.4 3.8-2.9"/>
+      <circle class="dot" cx="12" cy="13.6" r="1.3"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.4"/><path d="M12 7.2v5.2l3.1 1.9"/>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+      <rect x="3.6" y="5.2" width="16.8" height="15" rx="2.4"/>
+      <path d="M8 3.2v4M16 3.2v4M3.6 10h16.8"/>
+    </symbol>
+    <symbol id="i-heartbeat" viewBox="0 0 24 24">
+      <path d="M3 12h4l2-4 3 8 2.4-5 1.6 3H21"/>
+    </symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24">
+      <path d="m12 3.6 8.4 4.2L12 12 3.6 7.8 12 3.6Z"/><path d="m3.6 12 8.4 4.2 8.4-4.2"/>
+      <path d="m3.6 16.2 8.4 4.2 8.4-4.2"/>
+    </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24">
+      <rect x="3.8" y="4.5" width="16.4" height="15" rx="2.2"/>
+      <path d="M3.8 9.3h16.4M3.8 14.2h16.4M9.5 4.5v15M15 4.5v15"/>
+    </symbol>
+  </svg>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-logo"></use></svg></span>
+        <div class="brand-copy">
+          <h1>หุ่นฝึก CPR</h1>
+          <p>แผงฝึกรีดหน้าอก</p>
+        </div>
+      </div>
+
+      <div class="mode-switch" role="group" aria-label="เลือกโหมดการฝึก">
+        <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">ฝึกอิสระ</button>
+        <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">รอบ 30:2</button>
+        <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">ทดสอบ 2 นาที</button>
+      </div>
+
+      <div class="top-actions">
+        <button type="button" class="conn-pill" id="connPill" data-state="off" aria-label="สถานะการเชื่อมต่อ">
+          <span class="conn-dot" aria-hidden="true"></span>
+          <span id="connText">ไม่ได้เชื่อมต่อ</span>
+        </button>
+        <button type="button" class="icon-btn" id="settingsBtn" aria-label="เปิดการตั้งค่า">
+          <svg class="icon" aria-hidden="true"><use href="#i-gear"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card hero" aria-labelledby="heroTitle">
+        <div class="card-head hero-head">
+          <div>
+            <p class="eyebrow">ความลึกการกด</p>
+            <h2 id="heroTitle">ระยะกดหน้าอก</h2>
+          </div>
+          <span class="chip chip-idle" id="depthChip">พร้อม</span>
+        </div>
+
+        <div class="hero-body">
+          <div class="hero-readout">
+            <div class="hero-value">
+              <span id="depthValue">0.0</span>
+              <span class="hero-unit" id="depthUnit">ซม.</span>
+            </div>
+            <p class="hero-hint" id="depthHint">เริ่มกดเพื่อวัดความลึก</p>
+            <div class="hero-meta">
+              <div class="meta">
+                <span class="meta-label">ช่วงเป้าหมาย</span>
+                <span class="meta-value" id="targetText">5–6 ซม.</span>
+              </div>
+              <div class="meta">
+                <span class="meta-label">ยอดล่าสุด</span>
+                <span class="meta-value" id="lastPeakText">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gauge" id="gauge" aria-hidden="true">
+            <div class="gauge-track">
+              <div class="gauge-band" id="gaugeBand"></div>
+              <div class="gauge-fill" id="gaugeFill"></div>
+              <div class="gauge-peak" id="gaugePeak"></div>
+            </div>
+            <div class="gauge-axis" id="gaugeAxis"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="stats-grid">
+        <section class="card stat-card rate-card" aria-labelledby="rateTitle">
+          <div class="card-head compact">
+            <div>
+              <p class="eyebrow">จังหวะ</p>
+              <h2 id="rateTitle">อัตราการกด</h2>
+            </div>
+            <span class="chip chip-idle" id="rateChip">รอจังหวะ</span>
+          </div>
+          <div class="rate-meter">
+            <svg class="rate-svg" viewBox="0 0 220 112" aria-hidden="true">
+              <path class="arc-track" d="M26 100 A84 84 0 0 1 194 100" pathLength="100"/>
+              <path class="arc-band" d="M26 100 A84 84 0 0 1 194 100" pathLength="100"/>
+              <path class="arc-fill" id="rateArc" d="M26 100 A84 84 0 0 1 194 100" pathLength="100"/>
+              <g class="rate-needle" id="rateNeedle">
+                <line x1="110" y1="100" x2="110" y2="32"/>
+                <circle class="dot" cx="110" cy="100" r="3.4"/>
+              </g>
+            </svg>
+            <div class="rate-readout">
+              <span class="rate-value" id="rateValue">—</span>
+              <span class="rate-unit">ครั้ง/นาที</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card stat-card recoil-card" aria-labelledby="recoilTitle">
+          <div class="card-head compact">
+            <div>
+              <p class="eyebrow">การคืนตัว</p>
+              <h2 id="recoilTitle">การปล่อยมือ</h2>
+            </div>
+          </div>
+          <div class="stat-status">
+            <span class="status-icon is-idle" id="recoilIcon">
+              <svg class="icon" aria-hidden="true"><use href="#i-recoil"></use></svg>
+            </span>
+            <div class="stat-copy">
+              <p class="stat-title" id="recoilText">ยังไม่มีข้อมูล</p>
+              <p class="stat-sub">ปล่อยให้หน้าอกกลับขึ้นสุดทุกครั้ง</p>
+            </div>
+          </div>
+          <div class="dot-row" id="recoilDots" aria-label="ผลการคืนตัว 10 ครั้งล่าสุด"></div>
+        </section>
+
+        <section class="card stat-card hand-card" aria-labelledby="handTitle">
+          <div class="card-head compact">
+            <div>
+              <p class="eyebrow">ตำแหน่งมือ</p>
+              <h2 id="handTitle">จุดวางมือ</h2>
+            </div>
+          </div>
+          <div class="stat-status">
+            <span class="status-icon is-idle" id="handIcon">
+              <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg>
+            </span>
+            <div class="stat-copy">
+              <p class="stat-title" id="handText">ยังไม่ตรวจ</p>
+              <p class="stat-sub">วางส้นมือที่กลางหน้าอก</p>
+            </div>
+          </div>
+          <div class="hand-guide" aria-hidden="true">
+            <span class="guide-line"></span><span class="guide-dot"></span><span class="guide-line"></span>
+            <span class="guide-label">กลางหน้าอก</span>
+          </div>
+        </section>
+
+        <section class="card stat-card counter-card" aria-labelledby="counterTitle">
+          <div class="card-head compact">
+            <div>
+              <p class="eyebrow">จำนวนครั้ง</p>
+              <h2 id="counterTitle">การนับ</h2>
+            </div>
+            <span class="chip chip-idle" id="counterChip">พร้อม</span>
+          </div>
+
+          <div class="counter-body">
+            <div class="counter-free" data-counter="free">
+              <div class="counter-main">
+                <span class="counter-value" id="counterValue">0</span>
+                <span class="counter-unit">ครั้ง</span>
+              </div>
+              <p class="counter-sub">ในรอบนี้</p>
+            </div>
+
+            <div class="counter-cycle" data-counter="cycle" hidden>
+              <div class="ring-wrap">
+                <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="ring-track" cx="50" cy="50" r="41" pathLength="100"/>
+                  <circle class="ring-fill" id="counterRing" cx="50" cy="50" r="41" pathLength="100"/>
+                </svg>
+                <div class="ring-label"><span id="ringCount">0</span><small>/30</small></div>
+              </div>
+              <div class="counter-cycle-copy">
+                <p class="counter-sub" id="cycleText">รอบที่ 1</p>
+                <p class="counter-mini" id="cycleTotal">ทั้งหมด 0 ครั้ง</p>
+              </div>
+            </div>
+
+            <div class="counter-test" data-counter="test" hidden>
+              <div class="counter-main">
+                <span class="counter-value" id="testCountdown">2:00</span>
+              </div>
+              <p class="counter-sub" id="testCount">กดแล้ว 0 ครั้ง</p>
+            </div>
+          </div>
+
+          <div class="breath-banner" id="breathBanner" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-heartbeat"></use></svg>
+            <span id="breathText">ให้ลมหายใจ 2 ครั้ง</span>
+          </div>
+        </section>
+
+        <section class="card graph-card" aria-labelledby="graphTitle">
+          <div class="card-head compact graph-head">
+            <div>
+              <p class="eyebrow">แนวโน้ม</p>
+              <h2 id="graphTitle">ความลึก 10 วินาทีล่าสุด</h2>
+            </div>
+            <div class="graph-legend"><span class="legend-band"></span>ช่วงเป้าหมาย</div>
+          </div>
+          <div class="graph-wrap">
+            <canvas id="depthGraph" role="img" aria-label="กราฟความลึกการกดย้อนหลัง 10 วินาที"></canvas>
+            <p class="graph-empty" id="graphEmpty">ยังไม่มีข้อมูล</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="bottom-bar">
+      <div class="bar-actions">
+        <button type="button" class="btn btn-primary" id="startBtn">
+          <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
+          <span>เริ่ม</span>
+        </button>
+        <button type="button" class="btn btn-ghost metro-btn" id="metroBtn" aria-pressed="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
+          <svg class="icon" aria-hidden="true"><use href="#i-music"></use></svg>
+          <span class="metro-text" id="metroLabel">จังหวะ 110</span>
+        </button>
+        <button type="button" class="btn btn-ghost" id="stopBtn">
+          <svg class="icon" aria-hidden="true"><use href="#i-stop"></use></svg>
+          <span>จบรอบ</span>
+        </button>
+      </div>
+
+      <div class="bar-meta">
+        <div class="segmented compact" role="group" aria-label="เลือกโปรไฟล์ผู้ฝึก">
+          <button type="button" class="seg-btn is-active" data-profile="adult" aria-pressed="true">ผู้ใหญ่</button>
+          <button type="button" class="seg-btn" data-profile="child" aria-pressed="false">เด็ก</button>
+        </div>
+        <div class="source-info">
+          <span class="source-dot" aria-hidden="true"></span>
+          <span id="sourceText">ยังไม่เชื่อมต่อ</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="notices" id="notices" aria-live="polite">
+    <div class="notice notice-pause" id="pauseBanner" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
+      <span id="pauseText">หยุดกดแล้ว 4 วินาที</span>
+    </div>
+    <div class="notice notice-warn" id="warnSps" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+      <span>เซนเซอร์อ่านได้แค่ 10 ครั้ง/วินาที ดูวิธีแก้ในคู่มือ</span>
+    </div>
+    <div class="notice notice-bad" id="warnOverload" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+      <span>กดแรงเกิน ระวังเซนเซอร์เสีย</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <div class="modal-layer" id="modalLayer" hidden>
+    <div class="scrim" data-close="1"></div>
+
+    <section class="sheet sheet-connect" id="sheetConnect" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="connectTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <p class="eyebrow">เริ่มต้น</p>
+          <h2 id="connectTitle">เชื่อมต่อหุ่นฝึก</h2>
+          <p class="sheet-sub">เลือกวิธีรับข้อมูลจากอุปกรณ์</p>
+        </div>
+        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดหน้าต่างเชื่อมต่อ">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="connect-list">
+          <button type="button" class="connect-card" id="connectWs">
+            <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-wifi"></use></svg></span>
+            <span class="connect-copy">
+              <strong>Wi-Fi (ESP32)</strong>
+              <small>เชื่อมต่อผ่าน Wi-Fi ของหุ่นที่ 192.168.4.1</small>
+            </span>
+            <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+          </button>
+
+          <button type="button" class="connect-card" id="connectSerial">
+            <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-usb"></use></svg></span>
+            <span class="connect-copy">
+              <strong>สาย USB (Web Serial)</strong>
+              <small id="serialHint">ต่อด้วยสาย USB ความเร็ว 115200</small>
+            </span>
+            <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+          </button>
+
+          <div class="connect-card connect-demo">
+            <button type="button" class="connect-main" id="connectDemo">
+              <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-demo"></use></svg></span>
+              <span class="connect-copy">
+                <strong>โหมดเดโม</strong>
+                <small>เล่นข้อมูลบันทึกซ้ำ เพื่อดูหน้าจอโดยไม่ต้องต่อหุ่น</small>
+              </span>
+              <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+            </button>
+            <div class="demo-picker">
+              <label for="demoSelect">ข้อมูลตัวอย่าง</label>
+              <select id="demoSelect">
+                <option value="good">กำลังโหลด…</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <p class="sheet-note">โหมดเดโมใช้ข้อมูลจากซิมูเลเตอร์ เมื่อคลิปจบจะเริ่มรอบใหม่ให้อัตโนมัติ</p>
+      </div>
+    </section>
+
+    <section class="sheet sheet-summary" id="sheetSummary" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="summaryTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <p class="eyebrow">จบรอบ</p>
+          <h2 id="summaryTitle">สรุปผลการฝึก</h2>
+        </div>
+        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดสรุปผล">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="score-hero">
+          <div class="score-ring-wrap">
+            <svg class="score-ring" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="score-track" cx="60" cy="60" r="52" pathLength="100"/>
+              <circle class="score-fill" id="scoreRing" cx="60" cy="60" r="52" pathLength="100"/>
+            </svg>
+            <div class="score-value"><span id="scoreValue">0</span><small>คะแนน</small></div>
+          </div>
+          <div class="score-copy">
+            <span class="grade-word" id="gradeWord">—</span>
+            <p class="score-meta" id="summaryMeta">—</p>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric-tile">
+            <div class="metric-top">
+              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
+              <span class="metric-label">ความลึกถูก</span>
+              <strong class="metric-value" id="mDepth">0%</strong>
+            </div>
+            <div class="metric-bar"><i id="mDepthBar"></i></div>
+          </div>
+          <div class="metric-tile">
+            <div class="metric-top">
+              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-gauge"></use></svg></span>
+              <span class="metric-label">จังหวะถูก</span>
+              <strong class="metric-value" id="mRate">0%</strong>
+            </div>
+            <div class="metric-bar"><i id="mRateBar"></i></div>
+          </div>
+          <div class="metric-tile">
+            <div class="metric-top">
+              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-recoil"></use></svg></span>
+              <span class="metric-label">คืนตัวสุด</span>
+              <strong class="metric-value" id="mRecoil">0%</strong>
+            </div>
+            <div class="metric-bar"><i id="mRecoilBar"></i></div>
+          </div>
+          <div class="metric-tile">
+            <div class="metric-top">
+              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg></span>
+              <span class="metric-label">มือถูกตำแหน่ง</span>
+              <strong class="metric-value" id="mHand">0%</strong>
+            </div>
+            <div class="metric-bar"><i id="mHandBar"></i></div>
+          </div>
+        </div>
+
+        <div class="summary-facts" id="summaryFacts"></div>
+
+        <p class="score-note">คะแนนคิดจากความลึก 30% · จังหวะ 25% · คืนตัว 20% · ตำแหน่งมือ 10% · CCF 15% (สูงสุดที่ 60%)<br>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</p>
+
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-ghost" id="csvBtn">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+            <span>ดาวน์โหลด CSV</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="againBtn">
+            <svg class="icon" aria-hidden="true"><use href="#i-restart"></use></svg>
+            <span>ฝึกอีกครั้ง</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet sheet-settings" id="sheetSettings" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="settingsTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <p class="eyebrow">ปรับแต่ง</p>
+          <h2 id="settingsTitle">ตั้งค่า</h2>
+        </div>
+        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดการตั้งค่า">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="settings-group">
+          <h3>หน้าตา</h3>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>ธีมหน้าจอ</span>
+              <small>จำค่าที่เลือกไว้บนเครื่องนี้</small>
+            </div>
+            <div class="segmented compact" role="group" aria-label="เลือกธีม">
+              <button type="button" class="seg-btn theme-btn is-active" data-theme-set="dark" aria-pressed="true">มืด</button>
+              <button type="button" class="seg-btn theme-btn" data-theme-set="light" aria-pressed="false">สว่าง</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>การฝึก</h3>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>โปรไฟล์</span>
+              <small>ช่วงความลึกและเกณฑ์การกด</small>
+            </div>
+            <div class="segmented compact" role="group" aria-label="เลือกโปรไฟล์">
+              <button type="button" class="seg-btn profile-btn is-active" data-profile="adult" aria-pressed="true">ผู้ใหญ่</button>
+              <button type="button" class="seg-btn profile-btn" data-profile="child" aria-pressed="false">เด็ก</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>เมโทรนอม</span>
+              <small>เสียงจังหวะบนตัวหุ่น</small>
+            </div>
+            <button type="button" class="switch" id="metroSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดเมโทรนอม">
+              <span class="switch-knob"></span>
+            </button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>เสียงแจ้งผลบนเครื่อง</span>
+              <small>ตั้งค่าที่ปุ่มบนหุ่น</small>
+            </div>
+            <span class="chip chip-ok has-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>เปิด</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>การเชื่อมต่อ</h3>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>สถานะ</span>
+              <small id="settingsConnText">ยังไม่ได้เชื่อมต่อ</small>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="settingsConnectBtn">เปลี่ยน</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="settingsDisconnectBtn" hidden>ตัด</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>เซนเซอร์</h3>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span>ปรับเทียบ</span>
+              <small>ตั้งศูนย์ ตั้งน้ำหนัก และตั้งช่วงความลึก</small>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="openCalibBtn">เปิดตัวช่วย</button>
+          </div>
+        </div>
+
+        <div class="about-card">
+          <span class="brand-mark small"><svg class="icon" aria-hidden="true"><use href="#i-logo"></use></svg></span>
+          <div class="about-copy">
+            <strong>หุ่นฝึก CPR</strong>
+            <p>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</p>
+            <small id="aboutMeta">ยังไม่เชื่อมต่อ</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet sheet-calib" id="sheetCalib" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="calibTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <p class="eyebrow">เซนเซอร์</p>
+          <h2 id="calibTitle">ปรับเทียบหุ่น</h2>
+          <p class="sheet-sub" id="calibSub">ทำตามขั้นตอนทีละขั้น ใช้เวลาประมาณ 2 นาที</p>
+        </div>
+        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดการปรับเทียบ">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="stepper" id="calibStepper">
+          <div class="step" data-step="1"><span class="step-dot">1</span><span class="step-label">ตั้งศูนย์</span></div>
+          <div class="step" data-step="2"><span class="step-dot">2</span><span class="step-label">น้ำหนัก</span></div>
+          <div class="step" data-step="3"><span class="step-dot">3</span><span class="step-label">ช่วงกด</span></div>
+          <div class="step" data-step="4"><span class="step-dot">4</span><span class="step-label">บันทึก</span></div>
+        </div>
+
+        <div class="calib-panel" id="calibPanel"></div>
+        <div class="calib-status" id="calibStatus" role="status" hidden></div>
+        <div class="calib-actions" id="calibActions"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
