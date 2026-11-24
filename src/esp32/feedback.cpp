@@ -24,10 +24,16 @@ void Feedback::update(const cpr::LiveState& live) {
   const bool deep =
       live.liveDepth == cpr::DepthLevel::Deep || live.overload;
 
-  digitalWrite(pins::kLedPos, live.handOk ? HIGH : LOW);
   digitalWrite(pins::kLedGood, good ? HIGH : LOW);
   digitalWrite(pins::kLedShallow, shallow ? HIGH : LOW);
   digitalWrite(pins::kLedDeep, deep ? HIGH : LOW);
+
+#if CPR_HAS_FOIL
+  digitalWrite(pins::kLedPos, live.handOk ? HIGH : LOW);
+#else
+  digitalWrite(pins::kLedPos,
+               live.phase != cpr::Phase::Idle ? HIGH : LOW);
+#endif
 }
 
 void Feedback::onEvent(const cpr::Event& ev, uint32_t nowMs) {

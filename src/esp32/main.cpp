@@ -11,6 +11,7 @@
 
 #include "feedback.h"
 #include "net.h"
+#include "pins.h"
 #include "sensors.h"
 #include "storage.h"
 
@@ -59,7 +60,9 @@ void queueLine(const char* line, bool important) {
       const char* message = "# line too long";
       memset(buffer, 0, sizeof(buffer));
       strncpy(buffer, message, sizeof(buffer) - 1);
-      xQueueSend(g_outQueue, buffer, portMAX_DELAY);
+      if (xQueueSend(g_outQueue, buffer, pdMS_TO_TICKS(20)) != pdTRUE) {
+        net::noteQueueDrop();
+      }
     }
     return;
   }
@@ -67,8 +70,10 @@ void queueLine(const char* line, bool important) {
   memset(buffer, 0, sizeof(buffer));
   memcpy(buffer, line, length + 1);
 
-  const TickType_t wait = important ? portMAX_DELAY : 0;
-  xQueueSend(g_outQueue, buffer, wait);
+  const TickType_t wait = important ? pdMS_TO_TICKS(20) : 0;
+  if (xQueueSend(g_outQueue, buffer, wait) != pdTRUE) {
+    net::noteQueueDrop();
+  }
 }
 
 void sendAck(const char* cmd, bool ok, const char* msg) {
@@ -81,7 +86,8 @@ void sendConfig() {
   char buffer[kOutLineLength];
   const size_t length =
       cpr::jsonConfig(buffer, sizeof(buffer), g_cfg, g_cal,
-                      g_sensors.tofPresent(), "esp32", kFirmwareVersion);
+                      g_sensors.tofPresent(), "esp32", kFirmwareVersion,
+                      g_sensors.hx711Present(), CPR_HAS_FOIL != 0);
   if (length == 0) return;
 
   net::setConfigLine(buffer);
@@ -104,7 +110,12 @@ bool readTofRest() {
 }
 
 void handleTare() {
-  const bool hxOk = g_sensors.hx711Present() ? readHxTare() : true;
+  if (!g_sensors.hx711Present()) {
+    sendAck("tare", false, "no hx711");
+    return;
+  }
+
+  const bool hxOk = readHxTare();
   const bool tofOk = g_sensors.tofPresent() ? readTofRest() : true;
   const bool ok = hxOk && tofOk;
   sendAck("tare", ok, ok ? "ok" : "sensor not ready");
@@ -325,7 +336,7 @@ void pollEvents() {
 void sendFrame() {
   char buffer[kOutLineLength];
   if (cpr::jsonFrame(buffer, sizeof(buffer), g_engine.live()) != 0) {
-    queueLine(buffer, false);
+    net::setFrame(buffer);
   }
 }
 
@@ -344,6 +355,11 @@ void sampleTask(void*) {
            xQueueReceive(g_cmdQueue, commandLine, 0) == pdTRUE) {
       commandLine[kCmdLineLength - 1] = '\0';
       handleCommand(commandLine);
+    }
+
+    if (g_sensors.service(now)) {
+      g_engine.setTofPresent(g_sensors.tofPresent());
+      sendConfig();
     }
 
     cpr::Sample sample;
@@ -368,6 +384,7 @@ void sampleTask(void*) {
     g_feedback.tick(now);
 
     pollEvents();
+    net::setDiagSensor(g_engine.live().sps, g_sensors.hx711Present());
 
     if (!haveFrameTime ||
         (uint32_t)(now - lastFrameMs) >= kFramePeriodMs) {
@@ -377,7 +394,8 @@ void sampleTask(void*) {
     }
 
     if (g_engine.live().lowSps && !g_lowSpsWarned) {
-      queueLine("# HX711 is running at 10 SPS, see docs: RATE pin", true);
+      queueLine("# HX711 sample rate is low, check the RATE pin and wiring",
+                true);
       g_lowSpsWarned = true;
     }
 
@@ -388,6 +406,7 @@ void sampleTask(void*) {
 } // namespace
 
 void setup() {
+  Serial.setTxBufferSize(1024);
   Serial.begin(115200);
 
   if (!storage::loadCalibration(g_cal)) {
@@ -419,8 +438,8 @@ void setup() {
 
   char cfgBuffer[kOutLineLength];
   if (cpr::jsonConfig(cfgBuffer, sizeof(cfgBuffer), g_cfg, g_cal,
-                      g_sensors.tofPresent(), "esp32",
-                      kFirmwareVersion) != 0) {
+                      g_sensors.tofPresent(), "esp32", kFirmwareVersion,
+                      g_sensors.hx711Present(), CPR_HAS_FOIL != 0) != 0) {
     net::setConfigLine(cfgBuffer);
   }
 

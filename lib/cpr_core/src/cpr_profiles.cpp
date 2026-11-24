@@ -28,7 +28,7 @@ Config defaultConfig(Profile p) {
   c.th.handsOffMs = 2000;    // engineering value, tunable
   c.th.maxPauseMs = 10000;   // AHA: interruptions under 10 s
   c.th.cycleCompressions = 30; // AHA single-rescuer ratio
-  c.th.lowSpsWarn = 15;      // engineering value, tunable
+  c.th.lowSpsWarn = 8;       // engineering value, tunable: stock HX711 is 10 SPS
 
   c.filterAlpha = 0.5f;      // engineering value, tunable
   c.metronomeBpm = 110;      // centre of the AHA 100-120 range

@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
 
   char cfgBuf[cpr::kMaxJsonLine + 8];
   size_t cfgLen = cpr::jsonConfig(cfgBuf, sizeof(cfgBuf), cfg, cal, tof,
-                                  kBoard, kFirmware);
+                                  kBoard, kFirmware, true, true);
   if (!writeLine(out, cfgBuf, cfgLen)) {
     fprintf(stderr, "error: write failed\n");
     fclose(out);

@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifndef CPR_HAS_FOIL
+#define CPR_HAS_FOIL 1
+#endif
+
 namespace pins {
 
 // HX711 load cell.

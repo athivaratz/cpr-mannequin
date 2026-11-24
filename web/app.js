@@ -59,6 +59,7 @@
     lastCompression: null,
     lastSum: null,
     lastSumAt: null,
+    lastDiag: null,
     sumSeq: 0,
     lastPeak: null,
     lastPeakKg: false,
@@ -111,7 +112,7 @@
       'countTile', 'countLabel', 'countIconUse', 'countValue', 'countGood',
       'countRing', 'countRingNum', 'countCycle', 'countTestRing', 'countTestNum',
       'depthGraph', 'graphWrap', 'graphEmpty', 'pauseBanner', 'pauseText',
-      'breathBanner', 'warnSps', 'warnOverload', 'toast', 'sheetLayer',
+      'breathBanner', 'warnSps', 'warnHx', 'warnOverload', 'toast', 'sheetLayer',
       'sheetConnect', 'sheetSummary', 'sheetCalib', 'sheetSettings', 'sheetInfo',
       'connectWs', 'connectSerial', 'serialHint', 'connectDemo', 'demoSelect',
       'connectDisconnectRow', 'connectDisconnectBtn',
@@ -299,6 +300,7 @@
     const q = new URLSearchParams(location.search);
     const speedRaw = parseFloat(q.get('speed'));
     const seekRaw = parseFloat(q.get('seek'));
+    const mockRaw = q.get('mock') || '';
     return {
       demo: q.get('demo') || '',
       speed: has(speedRaw) && speedRaw > 0 ? clamp(speedRaw, .1, 20) : 1,
@@ -307,8 +309,13 @@
       sheet: q.get('sheet') || '',
       info: q.get('info') || '',
       motion: q.get('motion') || '',
+      mock: mockRaw.split(',').map((item) => item.trim()).filter(Boolean),
       ws: q.get('ws') === '1'
     };
+  }
+
+  function mockEnabled(name) {
+    return Array.isArray(state.opts.mock) && state.opts.mock.indexOf(name) !== -1;
   }
 
   async function fetchManifest() {
@@ -366,6 +373,7 @@
       this.id = this.opts.id || 'good';
       this.speed = this.opts.speed || 1;
       this.seek = this.opts.seek || 0;
+      this.mock = Array.isArray(this.opts.mock) ? this.opts.mock : [];
       this.messages = [];
       this.index = 0;
       this.offsetAt = 0;
@@ -373,6 +381,7 @@
       this.loopLen = 1;
       this.sampleSum = null;
       this.cfg = null;
+      this.nextDiagAt = 0;
       this.timer = null;
       this.stopped = true;
       this.peakCount = 0;
@@ -445,6 +454,7 @@
       this.index = index;
       this.offsetAt = remaining;
       this.startedAt = performance.now();
+      this.nextDiagAt = 0;
       this.onInstantDone && this.onInstantDone();
       this.pump();
     }
@@ -455,6 +465,7 @@
       this.index = 0;
       this.offsetAt = 0;
       this.startedAt = performance.now();
+      this.nextDiagAt = 0;
       this.pump();
     }
 
@@ -462,6 +473,7 @@
       if (this.stopped) return;
       const now = performance.now();
       const deviceNow = this.offsetAt + (now - this.startedAt) * this.speed;
+      this.maybeDiag(deviceNow);
       let guard = 0;
       while (this.index < this.messages.length &&
              this.messages[this.index].at <= deviceNow &&
@@ -486,7 +498,27 @@
       this.index = 0;
       this.offsetAt = 0;
       this.startedAt = performance.now();
+      this.nextDiagAt = 0;
       this.pump();
+    }
+
+    maybeDiag(deviceNow) {
+      if (this.mock.indexOf('diag') === -1) return;
+      if (deviceNow < this.nextDiagAt) return;
+      this.nextDiagAt = deviceNow + 5000;
+      this.onMessage && this.onMessage({
+        ty: 'diag',
+        up: Math.max(0, Math.floor(deviceNow / 1000)),
+        rx: 0,
+        rxBad: 0,
+        qDrop: 0,
+        sSkip: 0,
+        fDrop: 0,
+        sps: 10,
+        heap: 180000,
+        ser: 0,
+        hx: 1
+      }, { instant: false, at: deviceNow });
     }
 
     emitAck(cmd, line) {
@@ -804,8 +836,11 @@
   }
 
   function applyCfg(msg) {
-    state.cfg = Object.assign({}, msg);
-    state.profile = msg.prof === 1 ? 'child' : 'adult';
+    const patched = Object.assign({}, msg);
+    if (mockEnabled('nohx')) patched.hx = 0;
+    if (mockEnabled('nohand')) patched.hand = 0;
+    state.cfg = patched;
+    state.profile = patched.prof === 1 ? 'child' : 'adult';
     refreshProfileButtons();
     refreshConfigUI();
   }
@@ -942,6 +977,10 @@
       case 'ack':
         handleAck(msg);
         break;
+      case 'diag':
+        state.lastDiag = Object.assign({}, msg);
+        if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
+        break;
       default:
         break;
     }
@@ -1022,8 +1061,16 @@
       els.rateBand.style.left = (start * 100).toFixed(2) + '%';
       els.rateBand.style.width = (width * 100).toFixed(2) + '%';
     }
+    refreshHandVisibility();
     buildRuler(info);
     refreshInfoPanels();
+  }
+
+  function refreshHandVisibility() {
+    const noHand = !!(state.cfg && state.cfg.hand === 0);
+    if (els.handTile) els.handTile.hidden = noHand;
+    if (els.metricHand) els.metricHand.hidden = noHand;
+    if (els.tiles) els.tiles.classList.toggle('is-no-hand', noHand);
   }
 
   function buildRuler(info) {
@@ -1435,6 +1482,7 @@
     const breathing = state.mode === 'cycle' && state.sessionActive && state.cc >= 30;
     toggleBanner(els.breathBanner, breathing);
     toggleBanner(els.warnSps, state.lowSps);
+    toggleBanner(els.warnHx, !!(state.cfg && state.cfg.hx === 0));
 
     if (!state.overload && frame && has(frame.t) && frame.t > state.overloadUntil) {
       state.overload = false;
@@ -1937,6 +1985,25 @@
       '<p class="muted">น้ำหนักคะแนนทีมตั้งเอง ไม่ใช่เกณฑ์ทางการ</p>';
   }
 
+  function diagSummary() {
+    const diag = state.lastDiag;
+    if (!diag) return 'ระบบ · —';
+
+    const up = has(diag.up) ? diag.up : 0;
+    const minutes = Math.floor(up / 60);
+    const upText = minutes >= 60
+      ? Math.floor(minutes / 60) + ' ชม. ' + (minutes % 60) + ' นาที'
+      : minutes >= 1 ? minutes + ' นาที' : Math.floor(up) + ' วิ';
+    const sps = has(diag.sps) ? diag.sps : 0;
+    const usb = diag.ser ? 'เปิด' : 'ปิด';
+    const bad = has(diag.rxBad) ? diag.rxBad : 0;
+    const dropped = (has(diag.qDrop) ? diag.qDrop : 0) +
+      (has(diag.fDrop) ? diag.fDrop : 0);
+
+    return 'ระบบ · ขึ้นมา ' + upText + ' · อ่าน ' + sps + '/วิ · สายUSB ' +
+      usb + ' · ขยะ ' + bad + ' · ตกหล่น ' + dropped;
+  }
+
   function aboutBody() {
     const cfg = state.cfg;
     let board = '—';
@@ -1951,7 +2018,8 @@
     return '<p>หุ่นฝึก CPR เด็ก โครงงานโรงเรียน</p>' +
       '<div class="disclaimer"><svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
       '<span>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</span></div>' +
-      '<p class="muted">' + board + ' · ' + fw + ' · ' + transport + '</p>';
+      '<p class="muted">' + board + ' · ' + fw + ' · ' + transport + '</p>' +
+      '<p class="muted about-diag">' + esc(diagSummary()) + '</p>';
   }
 
   function populateInfo() {
@@ -2389,7 +2457,8 @@
         attachTransport(new DemoSocket({
           id,
           speed: state.opts.speed || 1,
-          seek: state.opts.seek || 0
+          seek: state.opts.seek || 0,
+          mock: state.opts.mock
         }), 'demo');
       });
     }
@@ -2469,7 +2538,8 @@
       attachTransport(new DemoSocket({
         id: state.opts.demo,
         speed: state.opts.speed,
-        seek: state.opts.seek
+        seek: state.opts.seek,
+        mock: state.opts.mock
       }), 'demo');
     } else if (location.hostname === '192.168.4.1') {
       attachTransport(new WsTransport(), 'ws');
@@ -2477,7 +2547,8 @@
       attachTransport(new DemoSocket({
         id: 'good',
         speed: state.opts.speed,
-        seek: state.opts.seek
+        seek: state.opts.seek,
+        mock: state.opts.mock
       }), 'demo');
     } else if (!state.opts.sheet) {
       setTimeout(() => {

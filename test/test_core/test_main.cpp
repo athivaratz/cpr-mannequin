@@ -382,10 +382,13 @@ void test_test2min() {
 }
 
 void test_low_sps() {
-  RunOut out = runScenario(cprsim::Scenario::Good, 6, 10, true);
-  TEST_ASSERT_TRUE(out.live.sps <= 15);
-  TEST_ASSERT_TRUE(out.live.lowSps);
-  TEST_ASSERT_TRUE(out.live.sps >= 9);
+  RunOut slow = runScenario(cprsim::Scenario::Good, 6, 5, true);
+  TEST_ASSERT_TRUE(slow.live.sps <= 8);
+  TEST_ASSERT_TRUE(slow.live.lowSps);
+  TEST_ASSERT_TRUE(slow.live.sps >= 4);
+
+  RunOut stock = runScenario(cprsim::Scenario::Good, 6, 10, true);
+  TEST_ASSERT_FALSE(stock.live.lowSps);
 }
 
 void test_metronome() {
@@ -668,9 +671,9 @@ void test_json() {
   TEST_ASSERT_TRUE(len > 0);
   TEST_ASSERT_EQUAL_STRING(
       "{\"ty\":\"cfg\",\"board\":\"esp32\",\"fw\":\"1.0.0\",\"prof\":0,"
-      "\"tof\":0,\"src\":0,\"unit\":\"kg\",\"gmin\":50,\"dmin\":60,"
-      "\"gkg\":6.0,\"dkg\":12.0,\"ovkg\":18.0,\"rmin\":100,\"rmax\":120,"
-      "\"map\":0,\"metro\":110}",
+      "\"tof\":0,\"hx\":1,\"hand\":1,\"src\":0,\"unit\":\"kg\",\"gmin\":50,"
+      "\"dmin\":60,\"gkg\":6.0,\"dkg\":12.0,\"ovkg\":18.0,\"rmin\":100,"
+      "\"rmax\":120,\"map\":0,\"metro\":110}",
       buf);
 
   len = cpr::jsonAck(buf, sizeof(buf), "tare", true, "ok");
@@ -695,6 +698,26 @@ void test_json() {
 
   char tiny[8];
   TEST_ASSERT_EQUAL_UINT32(0, cpr::jsonFrame(tiny, sizeof(tiny), s));
+}
+
+void test_json_config_extra() {
+  char buf[cpr::kMaxJsonLine + 32];
+  cpr::Config cfg = cpr::defaultConfig(cpr::Profile::Adult);
+  cpr::CalibrationData cal;
+  cpr::calibDefaults(cal);
+
+  size_t len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, false, "esp32",
+                               "1.0.0", false, false);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hx\":0"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hand\":0"));
+
+  len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, false, "esp32",
+                        "1.0.0", true, true);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hx\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hand\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"tof\":0,\"hx\":1,\"hand\":1,\"src\":0"));
 }
 
 void test_json_worst_case() {
@@ -883,6 +906,7 @@ int main(int, char**) {
   RUN_TEST(test_calibration_map_interp);
   RUN_TEST(test_command_parser);
   RUN_TEST(test_json);
+  RUN_TEST(test_json_config_extra);
   RUN_TEST(test_json_worst_case);
   RUN_TEST(test_size);
   RUN_TEST(test_score);

@@ -257,7 +257,8 @@ size_t jsonSummary(char* buf, size_t cap, const SessionStats& s, Mode m, Profile
 }
 
 size_t jsonConfig(char* buf, size_t cap, const Config& c, const CalibrationData& cal,
-                  bool tofPresent, const char* board, const char* fw) {
+                  bool tofPresent, const char* board, const char* fw,
+                  bool hxPresent, bool handSensor) {
   Source src;
   if (tofPresent) src = Source::TofMm;
   else if (cal.mapCount >= 2) src = Source::MappedMm;
@@ -270,6 +271,10 @@ size_t jsonConfig(char* buf, size_t cap, const Config& c, const CalibrationData&
   key(b, CPR_PSTR("fw")); b.jsonString(fw);
   key(b, CPR_PSTR("prof")); b.u32((uint32_t)c.profile);
   key(b, CPR_PSTR("tof")); b.boolean(tofPresent);
+#if CPR_JSON_EXTRA
+  key(b, CPR_PSTR("hx")); b.boolean(hxPresent);
+  key(b, CPR_PSTR("hand")); b.boolean(handSensor);
+#endif
   key(b, CPR_PSTR("src")); b.u32((uint32_t)src);
   key(b, CPR_PSTR("unit")); b.jsonString(unit);
   key(b, CPR_PSTR("gmin")); b.i32(roundInt(c.th.goodMinMm));

@@ -14,6 +14,18 @@ namespace {
 // above this are treated as invalid.
 constexpr uint16_t kMaxValidRangeMm = 8000;
 
+constexpr uint32_t kHxReadyWaitMs = 3000;
+constexpr uint16_t kHxReadTimeoutMs = 200;
+constexpr uint8_t kHxDiscardReads = 4;
+constexpr uint8_t kHxTareReads = 8;
+constexpr long kHxSatHigh = 8388607L;
+constexpr long kHxSatLow = -8388608L;
+constexpr uint32_t kHxLostMs = 1000;
+constexpr uint32_t kHxProbeMs = 1000;
+constexpr uint32_t kHxPulseMs = 5000;
+constexpr long kTareMinCounts = 200;       // engineering value, tunable
+constexpr float kTareScaleFrac = 0.05f;    // engineering value, tunable
+
 } // namespace
 
 Sensors::Sensors()
@@ -21,33 +33,59 @@ Sensors::Sensors()
       hxPresent_(false),
       tofPresent_(false),
       haveDepth_(false),
+      hasOffset_(false),
       restMm_(0),
-      lastDepthMm_(0) {}
+      lastDepthMm_(0),
+      hxState_(HxState::Probe),
+      lastReadyMs_(0),
+      lastProbeMs_(0),
+      lastPulseMs_(0),
+      lastProgressMs_(0),
+      tareStartMs_(0),
+      satCount_(0),
+      discardLeft_(0),
+      tareStage_(0),
+      tareReads_(0),
+      tareAttempts_(0),
+      tareSum_(0),
+      tareAvg1_(0),
+      tareLastAvg_(0) {}
 
 void Sensors::begin(float scaleFactor) {
+#if CPR_HAS_FOIL
   pinMode(pins::kFoil, INPUT_PULLUP);
+#endif
 
   scale_ = scaleFactor;
   hx_.begin(pins::kHx711Dout, pins::kHx711Sck);
   hx_.set_scale(scale_);
 
-  // The HX711 needs a moment after power-up. Then give it up to two seconds
-  // to show a ready signal before deciding it is not connected.
-  delay(800);
+  hx_.power_down();
+  delayMicroseconds(100);
+  hx_.power_up();
+
   const uint32_t waitStart = millis();
-  while (!hx_.is_ready() && (uint32_t)(millis() - waitStart) < 1200) {
+  while (!hx_.is_ready() &&
+         (uint32_t)(millis() - waitStart) < kHxReadyWaitMs) {
     delay(10);
   }
 
   if (hx_.is_ready()) {
     hxPresent_ = true;
-    if (!tareLoadCell()) {
+    lastReadyMs_ = millis();
+    discardConversions(kHxDiscardReads, kHxReadTimeoutMs);
+    if (!tareLoadCell(kHxReadyWaitMs)) {
       Serial.println("# HX711 tare failed");
     }
   } else {
     hxPresent_ = false;
     Serial.println("# HX711 not found");
   }
+
+  const uint32_t now = millis();
+  hxState_ = hxPresent_ ? HxState::Present : HxState::Probe;
+  lastProbeMs_ = now;
+  lastPulseMs_ = now;
 
 #if defined(USE_VL53L0X) && USE_VL53L0X
   tofPresent_ = false;
@@ -80,19 +118,259 @@ void Sensors::setScale(float scale) {
   hx_.set_scale(scale_);
 }
 
+long Sensors::stableThreshold() const {
+  long threshold = kTareMinCounts;
+  const float scaled = fabsf(scale_) * kTareScaleFrac;
+  if (scaled > (float)threshold) threshold = (long)scaled;
+  return threshold;
+}
+
+bool Sensors::readRawAverage(uint8_t samples, uint16_t timeoutPerReadMs,
+                             long& out) {
+  if (samples == 0) return false;
+
+  long sum = 0;
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < samples; ++i) {
+    const uint32_t start = millis();
+    while (!hx_.is_ready()) {
+      if ((uint32_t)(millis() - start) >= timeoutPerReadMs) break;
+      delay(1);
+    }
+    if (!hx_.is_ready()) return false;
+    sum += hx_.read();
+    count++;
+  }
+
+  if (count == 0) return false;
+  out = sum / (long)count;
+  return true;
+}
+
+bool Sensors::discardConversions(uint8_t samples, uint16_t timeoutPerReadMs) {
+  for (uint8_t i = 0; i < samples; ++i) {
+    const uint32_t start = millis();
+    while (!hx_.is_ready()) {
+      if ((uint32_t)(millis() - start) >= timeoutPerReadMs) return false;
+      delay(1);
+    }
+    hx_.read();
+  }
+  return true;
+}
+
+bool Sensors::stableTare(uint32_t budgetMs, uint16_t timeoutPerReadMs,
+                         long& offset) {
+  const uint32_t start = millis();
+  const long threshold = stableThreshold();
+  bool haveLast = false;
+  long lastAverage = 0;
+
+  for (uint8_t attempt = 0; attempt < 3; ++attempt) {
+    long average1 = 0;
+    long average2 = 0;
+    if (!readRawAverage(kHxTareReads, timeoutPerReadMs, average1)) {
+      return false;
+    }
+    if (!readRawAverage(kHxTareReads, timeoutPerReadMs, average2)) {
+      return false;
+    }
+
+    long diff = average1 - average2;
+    if (diff < 0) diff = -diff;
+    lastAverage = (average1 + average2) / 2;
+    haveLast = true;
+
+    if (diff <= threshold) {
+      offset = lastAverage;
+      return true;
+    }
+    if ((uint32_t)(millis() - start) >= budgetMs) break;
+  }
+
+  if (!haveLast) return false;
+  offset = lastAverage;
+  Serial.println("# HX711 tare unstable");
+  return true;
+}
+
+void Sensors::startRecovery(uint32_t nowMs) {
+  hxState_ = HxState::Discard;
+  discardLeft_ = kHxDiscardReads;
+  tareStage_ = 0;
+  tareReads_ = 0;
+  tareAttempts_ = 0;
+  tareSum_ = 0;
+  tareAvg1_ = 0;
+  tareLastAvg_ = 0;
+  tareStartMs_ = nowMs;
+  lastProgressMs_ = nowMs;
+}
+
+bool Sensors::service(uint32_t nowMs) {
+  if (hxPresent_) {
+    if (hx_.is_ready()) {
+      lastReadyMs_ = nowMs;
+    }
+
+    // lastReadyMs_ can be newer than nowMs when a command (tare, cal weight)
+    // stamped it from millis() after this loop captured nowMs. A signed
+    // difference keeps that from wrapping into a false loss.
+    const bool lost =
+        (int32_t)(nowMs - lastReadyMs_) > (int32_t)kHxLostMs || satCount_ >= 5;
+    if (lost) {
+      hxPresent_ = false;
+      satCount_ = 0;
+      hxState_ = HxState::Probe;
+      lastProbeMs_ = nowMs;
+      lastPulseMs_ = nowMs;
+      return true;
+    }
+    return false;
+  }
+
+  if (hxState_ == HxState::Probe &&
+      (uint32_t)(nowMs - lastPulseMs_) >= kHxPulseMs) {
+    lastPulseMs_ = nowMs;
+    hx_.power_down();
+    delayMicroseconds(100);
+    hx_.power_up();
+    lastProbeMs_ = nowMs;
+  }
+
+  switch (hxState_) {
+    case HxState::Probe:
+      if ((uint32_t)(nowMs - lastProbeMs_) < kHxProbeMs) return false;
+      lastProbeMs_ = nowMs;
+      if (!hx_.is_ready()) return false;
+      startRecovery(nowMs);
+      return false;
+
+    case HxState::Discard:
+      if (!hx_.is_ready()) {
+        if ((uint32_t)(nowMs - lastProgressMs_) >= kHxLostMs) {
+          hxState_ = HxState::Probe;
+          lastProbeMs_ = nowMs;
+        }
+        return false;
+      }
+      hx_.read();
+      lastProgressMs_ = nowMs;
+      if (discardLeft_ > 0) discardLeft_--;
+      if (discardLeft_ == 0) {
+        // The discard flushes unsettled conversions. If the cell was already
+        // tared, keep that offset and go straight back to Present: a new tare
+        // here could zero out a real load left on the plate.
+        if (hasOffset_) {
+          hxPresent_ = true;
+          hxState_ = HxState::Present;
+          lastReadyMs_ = nowMs;
+          satCount_ = 0;
+          return true;
+        }
+        hxState_ = HxState::Tare;
+        tareStage_ = 0;
+        tareReads_ = 0;
+        tareSum_ = 0;
+        tareAttempts_ = 0;
+        tareStartMs_ = nowMs;
+      }
+      return false;
+
+    case HxState::Tare: {
+      if (!hx_.is_ready()) {
+        if ((uint32_t)(nowMs - lastProgressMs_) >= kHxLostMs) {
+          hxState_ = HxState::Probe;
+          lastProbeMs_ = nowMs;
+        }
+        return false;
+      }
+      tareSum_ += hx_.read();
+      lastProgressMs_ = nowMs;
+      tareReads_++;
+
+      if (tareStage_ == 0) {
+        if (tareReads_ >= kHxTareReads) {
+          tareAvg1_ = tareSum_ / (long)kHxTareReads;
+          tareSum_ = 0;
+          tareReads_ = 0;
+          tareStage_ = 1;
+        }
+        return false;
+      }
+
+      if (tareReads_ < kHxTareReads) return false;
+
+      const long average2 = tareSum_ / (long)kHxTareReads;
+      tareSum_ = 0;
+      tareReads_ = 0;
+      tareLastAvg_ = (tareAvg1_ + average2) / 2;
+
+      long diff = tareAvg1_ - average2;
+      if (diff < 0) diff = -diff;
+      if (diff <= stableThreshold()) {
+        hx_.set_offset(tareLastAvg_);
+        hasOffset_ = true;
+        hxPresent_ = true;
+        hxState_ = HxState::Present;
+        lastReadyMs_ = nowMs;
+        satCount_ = 0;
+        return true;
+      }
+
+      tareAttempts_++;
+      if (tareAttempts_ >= 3 ||
+          (uint32_t)(nowMs - tareStartMs_) >= kHxReadyWaitMs) {
+        hx_.set_offset(tareLastAvg_);
+        hasOffset_ = true;
+        Serial.println("# HX711 tare unstable");
+        hxPresent_ = true;
+        hxState_ = HxState::Present;
+        lastReadyMs_ = nowMs;
+        satCount_ = 0;
+        return true;
+      }
+
+      tareStage_ = 0;
+      return false;
+    }
+
+    case HxState::Present:
+    default:
+      return false;
+  }
+}
+
 bool Sensors::read(uint32_t tMs, cpr::Sample& s) {
   s.tMs = tMs;
   s.kg = NAN;
   s.mm = -1;
+#if CPR_HAS_FOIL
   s.handOk = digitalRead(pins::kFoil) == LOW;
+#else
+  s.handOk = true;
+#endif
 
   bool haveSample = false;
 
   if (hxPresent_) {
     if (hx_.is_ready()) {
-      const float kg = hx_.get_units(1);
-      if (isfinite(kg)) {
-        s.kg = kg;
+      lastReadyMs_ = tMs;
+      // Read the raw value so a saturated cell can be spotted; this is the
+      // same one-reading conversion as get_units(1).
+      const long raw = hx_.read();
+      if (raw >= kHxSatHigh || raw <= kHxSatLow) {
+        if (satCount_ < 255) satCount_++;
+      } else {
+        satCount_ = 0;
+      }
+
+      const float currentScale = hx_.get_scale();
+      if (currentScale != 0.0f) {
+        const float kg = (float)(raw - hx_.get_offset()) / currentScale;
+        if (isfinite(kg)) {
+          s.kg = kg;
+        }
       }
       haveSample = true;
     }
@@ -125,20 +403,12 @@ bool Sensors::read(uint32_t tMs, cpr::Sample& s) {
 bool Sensors::tareLoadCell(uint32_t timeoutMs) {
   if (!hxPresent_) return false;
 
-  long sum = 0;
-  uint8_t count = 0;
-  const uint32_t start = millis();
-  while (count < 10 && (uint32_t)(millis() - start) < timeoutMs) {
-    if (hx_.is_ready()) {
-      sum += hx_.read();
-      count++;
-    } else {
-      delay(5);
-    }
-  }
-
-  if (count < 3) return false;
-  hx_.set_offset(sum / (long)count);
+  long offset = 0;
+  if (!stableTare(timeoutMs, kHxReadTimeoutMs, offset)) return false;
+  hx_.set_offset(offset);
+  hasOffset_ = true;
+  lastReadyMs_ = millis();
+  satCount_ = 0;
   return true;
 }
 
@@ -168,7 +438,9 @@ bool Sensors::calibrateWeight(float knownKg, float& newScale) {
     }
   }
 
+  lastReadyMs_ = millis();
   if (count < 10) return false;
+  satCount_ = 0;
 
   const double rawAverage = sum / (double)count;
   const double tared = rawAverage - (double)hx_.get_offset();
