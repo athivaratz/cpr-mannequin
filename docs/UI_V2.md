@@ -194,8 +194,15 @@ Max width 360px; it never stretches across a wide screen.
   each a blurred radial gradient in --ok, --warn and --bad (and a fourth in
   --accent for idle) at 18% (dark) / 12% (light) alpha, behind the content.
   Only the layer of the current state has `opacity: 1`; the others 0. The
-  state is the last compression's level while idle, the live level while
-  pressing (same rule as v1).
+  state is always the level of the last completed compression.
+- **Number rule (v2):** the big number shows the PEAK depth (or peak kg) of
+  the last completed compression, not the live value. It changes once per
+  compression (on the `c` event), so the number, the status pill, the hint
+  and the glow always describe the same compression. Before the first
+  compression of a session it shows the last peak from before (idle rule of
+  v1), or 0.0 with status **พร้อม** if there is none. The live value is shown
+  only by the ruler's live marker (damped, real time); the peak caret sits at
+  the last peak, i.e. at the same value as the number.
 - Top row: icon circle (ruler) + label **ความลึก**, and the round (i) button
   on the right (opens info "depth").
 - Middle: the number at `--t-hero` with the unit **ซม.** (or **กก.** in kg
@@ -283,7 +290,9 @@ sps, about`.
 3. Five small metric rings in one row (wraps to 3+2 under 360px): 56px rings
    with the icon in the center, % under each, a 1-word label under that:
    **ลึก · จังหวะ · คืนตัว · มือ · ต่อเนื่อง** (ต่อเนื่อง = CCF). Ring color:
-   ok ≥ 80%, warn 50–79, bad < 50. A small round (i) next to the row title
+   ok ≥ 80%, warn 50–79, bad < 50 — except **ต่อเนื่อง**, which is colored
+   by its 60% target like the score is: ok ≥ 60%, warn 40–59, bad < 40 (the
+   ring still fills to and shows the real %). A small round (i) next to the row title
    **คะแนนมาจาก** opens info `score`.
 4. Facts as list cards (ref 1 list items), 1 column on phone, 2 columns ≥ 600:
    icon circle + label left, value right: **จำนวน** `220 ครั้ง`, **เวลา**
@@ -352,7 +361,8 @@ Tokens:
 |---|---|
 | first load | cards fade in + rise 12px, 320ms --e-out, stagger 40ms by order, at most 8 cards; done once per page load and when the mode changes (only the tiles) |
 | mode switch | the active pill slides (transform) in --d-base; tiles whose content changes cross-fade (opacity 0→1, 160ms) |
-| live depth marker, rate dot | JS rAF loop with critical damping: each frame `x += (target - x) * (1 - exp(-dt/τ))`, τ = 60 ms (95% in ~180 ms). The big number text updates immediately on every frame (no tweening of the text). Never queue animations; the newest value always wins. |
+| live depth marker, rate dot | JS rAF loop with critical damping: each frame `x += (target - x) * (1 - exp(-dt/τ))`, τ = 60 ms (95% in ~180 ms). Never queue animations; the newest value always wins. |
+| hero number (new peak) | on each `c` event the text is set at once to the new peak and the number does a quick flip: opacity .4→1 + translateY(6px→0) over 180ms --e-out (keyframes, restarted per event). It never tweens through intermediate values. |
 | hero state | glow layers cross-fade opacity 300ms; status pill color/text cross-fade 150ms |
 | compression event | count value: scale 1 → 1.08 → 1 over 200ms (keyframes on transform); recoil capsule for the new press: scaleY 0 → 1 from bottom 180ms |
 | banners | enter: opacity 0→1 + translateY(-8px→0) 200ms; leave: opacity 1→0 160ms then `hidden` |
@@ -367,6 +377,8 @@ an opening sheet (removed after). No animated box-shadow, filter or
 width/height. Glow layers are pre-blurred gradients (no animated `filter`).
 Animations must never delay real-time readouts: frames update the DOM/canvas
 on the next rAF regardless of running transitions.
+
+**Screenshot flag `?motion=freeze`:** adds `data-motion="freeze"` on `<html>`; every transition/animation duration is 0, no stagger, no count-up, no pulses, rings and numbers show final values at once, the connection dot ring is not drawn. Real-time behaviour (dampers) is unaffected except τ = 0. tools/screenshots.py and the audit use it.
 
 `prefers-reduced-motion: reduce`: all durations become 0.01ms, no stagger, no
 pulses, no count-up (final values shown), dampers snap (τ = 0).
