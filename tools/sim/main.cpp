@@ -22,7 +22,7 @@ void usage(const char* prog) {
           "  --out <file>        recording path (one JSON message per line)\n"
           "  --seconds <n>       sample duration, default 40\n"
           "  --sps <n>           samples per second, default 80\n"
-          "  --profile adult|child\n"
+          "  --profile child|adult (default child)\n"
           "  --mode free|cycle|test\n"
           "  --no-tof            generate load-cell-only samples\n"
           "  --seed <n>          generator seed, default 1\n",
@@ -76,7 +76,7 @@ bool writeFrame(FILE* out, const cpr::Engine& engine) {
 
 int main(int argc, char** argv) {
   cprsim::Scenario scenario = cprsim::Scenario::Good;
-  cpr::Profile profile = cpr::Profile::Adult;
+  cpr::Profile profile = cpr::Profile::Child;
   cpr::Mode mode = cpr::Mode::Free;
   uint16_t sps = 80;
   uint32_t seconds = 40;

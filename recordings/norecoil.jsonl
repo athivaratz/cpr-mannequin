@@ -1,4 +1,4 @@
-{"ty":"cfg","board":"sim","fw":"1.0.0","prof":0,"tof":1,"src":2,"unit":"mm","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,"rmin":100,"rmax":120,"map":0,"metro":110}
+{"ty":"cfg","board":"sim","fw":"1.0.0","prof":1,"tof":1,"src":2,"unit":"mm","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,"rmin":100,"rmax":120,"map":0,"metro":110}
 {"ty":"f","t":0,"v":12.0,"kg":1.8,"mm":12,"src":2,"ph":1,"ld":1,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":1,"el":0}
 {"ty":"f","t":50,"v":13.3,"kg":2.0,"mm":16,"src":2,"ph":1,"ld":1,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":1,"el":0}
 {"ty":"f","t":100,"v":21.3,"kg":3.4,"mm":27,"src":2,"ph":1,"ld":1,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":1,"el":0}
@@ -873,4 +873,4 @@
 {"ty":"f","t":39900,"v":24.2,"kg":4.0,"mm":31,"src":2,"ph":1,"ld":1,"bpm":110,"rl":2,"hand":1,"ov":0,"ps":0,"n":73,"cc":0,"cy":0,"sps":80,"lsps":0,"act":1,"el":39}
 {"ty":"f","t":39950,"v":37.7,"kg":6.4,"mm":44,"src":2,"ph":1,"ld":1,"bpm":110,"rl":2,"hand":1,"ov":0,"ps":0,"n":73,"cc":0,"cy":0,"sps":80,"lsps":0,"act":1,"el":39}
 {"ty":"end","t":39987}
-{"ty":"sum","mode":0,"prof":0,"n":73,"dg":73,"dsh":0,"dd":0,"rr":72,"rg":71,"rs":1,"rf":0,"rc":0,"hd":73,"ok":0,"dur":39,"off":0,"lp":0,"plong":0,"pk":53.6,"bpm":109,"cy":0,"ccf":100,"score":80}
+{"ty":"sum","mode":0,"prof":1,"n":73,"dg":73,"dsh":0,"dd":0,"rr":72,"rg":71,"rs":1,"rf":0,"rc":0,"hd":73,"ok":0,"dur":39,"off":0,"lp":0,"plong":0,"pk":53.6,"bpm":109,"cy":0,"ccf":100,"score":80}

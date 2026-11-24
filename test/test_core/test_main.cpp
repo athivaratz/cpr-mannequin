@@ -445,6 +445,16 @@ void test_calibration_roundtrip() {
   TEST_ASSERT_EQUAL_INT(cpr::crc16(buf, len - 2), back.crc);
 }
 
+void test_calibration_default_child() {
+  cpr::CalibrationData d;
+  cpr::calibDefaults(d);
+  TEST_ASSERT_EQUAL_INT((int)cpr::Profile::Child, (int)d.profile);
+
+  cpr::Engine engine;
+  TEST_ASSERT_EQUAL_INT((int)cpr::Profile::Child,
+                        (int)engine.config().profile);
+}
+
 void test_calibration_crc_reject() {
   cpr::CalibrationData d;
   cpr::calibDefaults(d);
@@ -737,6 +747,7 @@ int main(int, char**) {
   RUN_TEST(test_low_sps);
   RUN_TEST(test_metronome);
   RUN_TEST(test_calibration_roundtrip);
+  RUN_TEST(test_calibration_default_child);
   RUN_TEST(test_calibration_crc_reject);
   RUN_TEST(test_calibration_fit_monotonic);
   RUN_TEST(test_calibration_map_interp);

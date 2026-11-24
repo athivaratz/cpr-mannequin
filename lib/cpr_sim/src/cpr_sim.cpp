@@ -39,7 +39,7 @@ Generator::Generator() {
   tof_ = true;
   seed_ = 1;
   seconds_ = 40;
-  profile_ = cpr::Profile::Adult;
+  profile_ = cpr::Profile::Child;
   rate_ = 110;
   kgScale_ = 0.7f;
   sampleIndex_ = 0;

@@ -20,7 +20,7 @@ void zeroEvent(Event& e, EventType type, uint32_t tMs) {
 } // namespace
 
 Engine::Engine() {
-  cfg_ = defaultConfig(Profile::Adult);
+  cfg_ = defaultConfig(Profile::Child);
   calibDefaults(cal_);
   tofPresent_ = false;
   mode_ = Mode::Free;

@@ -24,7 +24,7 @@
     demoTitle: '',
     cfg: null,
     mode: 'free',
-    profile: 'adult',
+    profile: 'child',
     theme: 'dark',
     frame: null,
     history: [],
@@ -73,7 +73,8 @@
       'connPill', 'connText', 'settingsBtn', 'depthChip', 'depthValue', 'depthUnit',
       'depthHint', 'targetText', 'lastPeakText', 'gaugeBand', 'gaugeFill', 'gaugePeak',
       'gaugeAxis', 'rateChip', 'rateArc', 'rateNeedle', 'rateValue', 'recoilIcon',
-      'recoilText', 'recoilDots', 'handIcon', 'handText', 'counterChip', 'counterValue',
+      'recoilText', 'recoilDots', 'handIcon', 'handText', 'handTarget', 'counterChip',
+      'counterValue', 'freeElapsed', 'freeGood', 'counterCard',
       'ringCount', 'counterRing', 'cycleText', 'cycleTotal', 'testCountdown', 'testCount',
       'breathBanner', 'breathText', 'depthGraph', 'graphEmpty', 'startBtn', 'stopBtn',
       'metroBtn', 'metroLabel', 'metroSwitch', 'sourceInfo', 'sourceText', 'pauseBanner',
@@ -183,6 +184,7 @@
       text2: get('--text-2'),
       text3: get('--text-3'),
       border: get('--border'),
+      surface: get('--surface'),
       okBg: get('--ok-bg'),
       okBorder: get('--ok-border')
     };
@@ -737,7 +739,9 @@
     const displayValue = info.kg ? value : value / 10;
 
     state.frame = msg;
-    state.targetDepth = displayValue;
+    const pressing = (msg.ph || 0) !== 0;
+    state.targetDepth = pressing ? displayValue
+      : (has(state.lastPeak) ? state.lastPeak : 0);
     state.targetRate = has(msg.bpm) && msg.bpm > 0 ? msg.bpm : 60;
     state.phase = msg.ph || 0;
     state.liveDepth = msg.ld || 0;
@@ -782,6 +786,7 @@
       i: msg.i,
       t: msg.t,
       pk: msg.pk,
+      tp: has(msg.tp) ? msg.tp : null,
       src: msg.src,
       dl: msg.dl,
       rl: msg.rl,
@@ -795,6 +800,7 @@
     state.lastCompression = msg;
     state.lastPeak = toDisplay(msg.pk);
     state.lastPeakT = msg.t;
+    if (state.phase === 0) state.targetDepth = state.lastPeak;
     state.dotsKey = '';
     state.graphDirty = true;
 
@@ -1046,42 +1052,40 @@
 
   function updateHero() {
     const info = unitInfo();
-    const value = state.display.depth;
+    const live = state.frame;
+    const pressing = !!live && state.phase !== 0;
+    const value = pressing ? state.display.depth
+      : (has(state.lastPeak) ? state.lastPeak : 0);
     setText(els.depthValue, value.toFixed(1));
 
     let chipText = 'พร้อม';
     let chipTone = 'chip-idle';
-    let hint = 'เริ่มกดเพื่อวัดความลึก';
-    let color = 'var(--accent)';
+    let hint = state.status === 'off' ? 'เชื่อมต่อหุ่นเพื่อเริ่มฝึก' : 'เริ่มกดเพื่อวัดความลึก';
 
-    const live = state.frame;
-    const level = state.liveDepth;
-    if (!live && state.status === 'off') {
-      hint = 'เชื่อมต่อหุ่นเพื่อเริ่มฝึก';
-    } else if (live && (state.phase !== 0 || state.sessionActive)) {
-      if (level === 1) {
-        chipText = 'ตื้นไป'; chipTone = 'chip-warn'; color = 'var(--warn)';
+    const last = state.lastCompression;
+    if (last) {
+      if (last.dl === 1) {
+        chipText = 'ตื้นไป';
+        chipTone = 'chip-warn';
         hint = 'กดให้ลึกอีกนิด';
-      } else if (level === 2) {
-        chipText = 'ลึกพอดี'; chipTone = 'chip-ok'; color = 'var(--ok)';
+      } else if (last.dl === 2) {
+        chipText = 'ลึกพอดี';
+        chipTone = 'chip-ok';
         hint = 'ความลึกอยู่ในช่วงเป้าหมาย';
-      } else if (level === 3) {
-        chipText = 'ลึกเกินไป'; chipTone = 'chip-bad'; color = 'var(--bad)';
-        hint = 'ผ่อนแรงลงเล็กน้อย';
-      } else if (state.pauseActive) {
-        hint = 'หยุดพักอยู่ ค่อยเริ่มกดต่อ';
-      } else {
-        hint = 'กดให้ผ่านช่วงเป้าหมาย';
+      } else if (last.dl === 3) {
+        chipText = 'ลึกเกินไป';
+        chipTone = 'chip-bad';
+        hint = 'กดเบาลงหน่อย';
       }
-    } else if (live && state.pauseActive) {
-      hint = 'หยุดพักอยู่ ค่อยเริ่มกดต่อ';
-    } else if (live && state.lastCompression) {
-      hint = 'พร้อมสำหรับครั้งต่อไป';
     }
     setChip(els.depthChip, chipText, chipTone);
 
     if (els.gaugeFill) {
-      els.gaugeFill.style.setProperty('--state', color);
+      const level = pressing ? state.liveDepth : 0;
+      const tone = level === 1 ? 'is-warn' : level === 2 ? 'is-ok'
+        : level === 3 ? 'is-bad' : '';
+      const nextClass = 'gauge-fill' + (tone ? ' ' + tone : '');
+      if (els.gaugeFill.className !== nextClass) els.gaugeFill.className = nextClass;
       els.gaugeFill.style.height = (clamp(value / info.scaleMax, 0, 1) * 100) + '%';
     }
     if (els.gaugePeak) {
@@ -1112,7 +1116,7 @@
     }
     if (els.rateNeedle) {
       const angle = -90 + fraction * 180;
-      els.rateNeedle.setAttribute('transform', 'rotate(' + angle.toFixed(2) + ' 110 100)');
+      els.rateNeedle.setAttribute('transform', 'rotate(' + angle.toFixed(2) + ' 120 116)');
     }
     setText(els.rateValue, bpm > 0 ? String(Math.round(bpm)) : '—');
 
@@ -1156,11 +1160,19 @@
     }
 
     if (state.frame) {
-      setText(els.handText, state.frame.hand ? 'วางมือถูกตำแหน่ง' : 'วางมือผิดตำแหน่ง');
-      setStatusIcon(els.handIcon, state.frame.hand ? 'ok' : 'bad');
+      const ok = !!state.frame.hand;
+      setText(els.handText, ok ? 'วางมือถูกตำแหน่ง' : 'วางมือผิดตำแหน่ง');
+      setStatusIcon(els.handIcon, ok ? 'ok' : 'bad');
+      if (els.handTarget) {
+        els.handTarget.classList.toggle('is-ok', ok);
+        els.handTarget.classList.toggle('is-bad', !ok);
+      }
     } else {
       setText(els.handText, 'ยังไม่ตรวจ');
       setStatusIcon(els.handIcon, 'idle');
+      if (els.handTarget) {
+        els.handTarget.classList.remove('is-ok', 'is-bad');
+      }
     }
     renderRecoilDots();
   }
@@ -1171,8 +1183,14 @@
     });
 
     const frame = state.frame;
+    const breathing = state.mode === 'cycle' && state.sessionActive && state.cc >= 30;
+    if (els.counterCard) els.counterCard.classList.toggle('is-breathing', breathing);
     if (state.mode === 'free') {
       setText(els.counterValue, String(state.count));
+      let good = 0;
+      state.compressions.forEach((c) => { if (c.ok) good += 1; });
+      setText(els.freeElapsed, 'เวลา ' + fmtDuration(state.elapsed));
+      setText(els.freeGood, 'ถูกทั้งหมด ' + good);
       if (frame && state.sessionActive) setChip(els.counterChip, 'กำลังฝึก', 'chip-ok');
       else if (frame) setChip(els.counterChip, 'พร้อม', 'chip-idle');
       else setChip(els.counterChip, 'พร้อม', 'chip-idle');
@@ -1191,7 +1209,7 @@
       else if (frame && state.sessionActive) setChip(els.counterChip, 'กำลังฝึก', 'chip-ok');
       else setChip(els.counterChip, 'พร้อม', 'chip-idle');
 
-      if (state.sessionActive && state.cc >= 30) {
+      if (breathing) {
         els.breathBanner.hidden = false;
         const over = state.cc > 30;
         els.breathBanner.classList.toggle('is-over', over);
@@ -1288,15 +1306,16 @@
     ctx.font = '10px "Anuphan", "Noto Sans Thai", sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
-    for (let i = 0; i <= 4; i += 1) {
-      const y = pad.t + height - (height * i / 4);
+    const ticks = height < 45 ? 2 : 4;
+    for (let i = 0; i <= ticks; i += 1) {
+      const y = pad.t + height * i / ticks;
       ctx.strokeStyle = c.border;
       ctx.beginPath();
       ctx.moveTo(pad.l, y);
       ctx.lineTo(pad.l + width, y);
       ctx.stroke();
       ctx.fillStyle = c.text2;
-      const label = tickNum(max * i / 4);
+      const label = tickNum(max * i / ticks);
       ctx.fillText(label, pad.l - 7, y);
     }
     ctx.textAlign = 'left';
@@ -1343,26 +1362,25 @@
       else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = c.accent;
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
 
     state.compressions.forEach((comp) => {
-      if (!has(comp.t) || comp.t < startT - 500 || comp.t > nowT + 500) return;
+      const dotT = has(comp.tp) ? comp.tp : comp.t;
+      if (!has(dotT) || dotT < startT - 500 || dotT > nowT + 500) return;
       const level = comp.dl || 0;
       const fill = level === 1 ? c.warn : level === 3 ? c.bad : level === 2 ? c.ok : c.accent;
-      const x = xOf(comp.t);
+      const x = xOf(dotT);
       const y = yOf(toDisplay(comp.pk));
       ctx.beginPath();
-      ctx.arc(x, y, 3.6, 0, Math.PI * 2);
+      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
       ctx.fillStyle = fill;
       ctx.fill();
-      ctx.strokeStyle = c.text;
-      ctx.globalAlpha = .55;
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = c.surface;
+      ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.globalAlpha = 1;
     });
 
     if (last) {
@@ -1492,14 +1510,16 @@
     setText(els.scoreValue, String(score));
 
     let grade = 'ฝึกอีกนิด';
+    if (score >= 85) grade = 'ยอดเยี่ยม';
+    else if (score >= 70) grade = 'ดี';
+    else if (score >= 50) grade = 'พอใช้';
+
     let tone = 'bad';
     let ring = 'var(--bad)';
-    if (score >= 85) {
-      grade = 'ยอดเยี่ยม'; tone = 'ok'; ring = 'var(--ok)';
-    } else if (score >= 70) {
-      grade = 'ดี'; tone = ''; ring = 'var(--accent)';
+    if (score >= 70) {
+      tone = 'ok'; ring = 'var(--ok)';
     } else if (score >= 50) {
-      grade = 'พอใช้'; tone = 'warn'; ring = 'var(--warn)';
+      tone = 'warn'; ring = 'var(--warn)';
     }
     setText(els.gradeWord, grade);
     if (tone) els.gradeWord.dataset.tone = tone;
