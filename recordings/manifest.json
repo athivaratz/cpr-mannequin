@@ -1,0 +1,62 @@
+[
+  {
+    "id": "good",
+    "title": "กดถูกต้อง",
+    "file": "good.jsonl"
+  },
+  {
+    "id": "shallow",
+    "title": "กดตื้นไป",
+    "file": "shallow.jsonl"
+  },
+  {
+    "id": "deep",
+    "title": "กดลึกเกินไป",
+    "file": "deep.jsonl"
+  },
+  {
+    "id": "fast",
+    "title": "จังหวะเร็วเกินไป",
+    "file": "fast.jsonl"
+  },
+  {
+    "id": "slow",
+    "title": "จังหวะช้าเกินไป",
+    "file": "slow.jsonl"
+  },
+  {
+    "id": "norecoil",
+    "title": "ปล่อยมือไม่สุด",
+    "file": "norecoil.jsonl"
+  },
+  {
+    "id": "wronghand",
+    "title": "วางมือผิดตำแหน่ง",
+    "file": "wronghand.jsonl"
+  },
+  {
+    "id": "noisy",
+    "title": "สัญญาณมีเสียงรบกวน",
+    "file": "noisy.jsonl"
+  },
+  {
+    "id": "cycle",
+    "title": "รอบ 30:2",
+    "file": "cycle.jsonl"
+  },
+  {
+    "id": "test2min",
+    "title": "ทดสอบ 2 นาที",
+    "file": "test2min.jsonl"
+  },
+  {
+    "id": "kgonly_good",
+    "title": "กดถูกต้อง (โหลดเซลล์)",
+    "file": "kgonly_good.jsonl"
+  },
+  {
+    "id": "lowsps_good",
+    "title": "กดถูกต้อง (10 SPS)",
+    "file": "lowsps_good.jsonl"
+  }
+]

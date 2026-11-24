@@ -1,0 +1,22 @@
+[
+  {
+    "id": "good",
+    "title": "กดถูกต้อง",
+    "file": "good.jsonl"
+  },
+  {
+    "id": "shallow",
+    "title": "กดตื้นไป",
+    "file": "shallow.jsonl"
+  },
+  {
+    "id": "cycle",
+    "title": "รอบ 30:2",
+    "file": "cycle.jsonl"
+  },
+  {
+    "id": "test2min",
+    "title": "ทดสอบ 2 นาที",
+    "file": "test2min.jsonl"
+  }
+]

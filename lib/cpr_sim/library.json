@@ -1,0 +1,8 @@
+{
+  "name": "cpr_sim",
+  "version": "0.1.0",
+  "description": "Native-only synthetic CPR waveform generator for tests and tools.",
+  "platforms": "native",
+  "frameworks": "*",
+  "dependencies": []
+}
