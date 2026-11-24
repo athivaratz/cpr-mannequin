@@ -124,30 +124,30 @@ def main():
                 for label, context in (("1280", desktop), ("390", phone)):
                     scroll = "#countTile" if label == "390" else None
                     capture(context, base, "01-practice-%s.png" % label,
-                            "?demo=good&seek=14", wait_ms=700)
+                            "?demo=good&seek=14&motion=freeze", wait_ms=700)
                     capture(context, base, "02-cycle-%s.png" % label,
-                            "?demo=cycle&seek=31.8", wait_ms=450,
+                            "?demo=cycle&seek=31.8&motion=freeze", wait_ms=450,
                             scroll_selector=scroll)
                     capture(context, base, "02b-breaths-%s.png" % label,
-                            "?demo=cycle&seek=38.2", wait_ms=650,
+                            "?demo=cycle&seek=38.2&motion=freeze", wait_ms=650,
                             scroll_selector=scroll)
                     capture(context, base, "03-summary-%s.png" % label,
-                            "?demo=test2min&seek=200&sheet=summary",
+                            "?demo=test2min&seek=200&sheet=summary&motion=freeze",
                             wait_selector="#sheetSummary:not([hidden])",
                             wait_ms=800)
                     capture(context, base, "04-calib-%s.png" % label,
-                            "?demo=good&seek=5&sheet=calib",
+                            "?demo=good&seek=5&sheet=calib&motion=freeze",
                             wait_selector="#sheetCalib:not([hidden])",
                             wait_ms=650)
                     capture(context, base, "05-shallow-%s.png" % label,
-                            "?demo=shallow&seek=5.0", wait_ms=300)
+                            "?demo=shallow&seek=5.0&motion=freeze", wait_ms=300)
                     capture(context, base, "07-connect-%s.png" % label,
-                            "?sheet=connect",
+                            "?sheet=connect&motion=freeze",
                             wait_selector="#sheetConnect:not([hidden])",
                             wait_ms=450)
 
                 capture(desktop, base, "06-light-1280.png",
-                        "?demo=good&seek=14&theme=light", wait_ms=700)
+                        "?demo=good&seek=14&theme=light&motion=freeze", wait_ms=700)
             finally:
                 browser.close()
     finally:

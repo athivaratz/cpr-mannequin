@@ -871,11 +871,7 @@ p {
   color: var(--on-accent);
   text-align: left;
   box-shadow: var(--shadow-1);
-  transition: transform var(--d-fast) var(--e-out), filter var(--d-fast) var(--e-out);
-}
-
-.cta:hover {
-  filter: brightness(1.04);
+  transition: transform var(--d-fast) var(--e-out);
 }
 
 .cta:active {
@@ -937,6 +933,11 @@ p {
   border-radius: var(--r-md);
   background: var(--surface);
   container-type: inline-size;
+  transition: transform var(--d-fast) var(--e-out);
+}
+
+.tile:active {
+  transform: scale(.97);
 }
 
 .tile[data-state="ok"] {
@@ -1128,6 +1129,7 @@ p {
   flex: 0 0 6px;
   border-radius: var(--r-pill);
   background: var(--surface-3);
+  transform-origin: bottom;
 }
 
 .recoil-dot.ok {
@@ -1175,8 +1177,9 @@ p {
   stroke: var(--accent);
   stroke-width: 9;
   stroke-linecap: round;
-  stroke-dasharray: 0 100;
-  transition: stroke-dasharray var(--d-base) var(--e-out), stroke var(--d-fast) var(--e-out);
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset var(--d-base) var(--e-out), stroke var(--d-fast) var(--e-out);
 }
 
 .ring-num {
@@ -1268,12 +1271,13 @@ p {
   line-height: 1.5;
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 200ms var(--e-out), transform 200ms var(--e-out);
+  transition: opacity 160ms var(--e-out), transform 160ms var(--e-out);
 }
 
 .notice.is-show {
   opacity: 1;
   transform: none;
+  transition-duration: 200ms;
 }
 
 .notice-ico {
@@ -1325,12 +1329,13 @@ p {
   text-align: center;
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 200ms var(--e-out), transform 200ms var(--e-out);
+  transition: opacity 160ms var(--e-out), transform 160ms var(--e-out);
 }
 
 .toast.is-show {
   opacity: 1;
   transform: none;
+  transition-duration: 200ms;
 }
 
 .toast[data-tone="bad"] {
@@ -1474,7 +1479,7 @@ button.list-card:hover {
 }
 
 button.list-card:active {
-  transform: scale(.99);
+  transform: scale(.97);
 }
 
 .list-card:disabled {
@@ -2459,6 +2464,43 @@ button.list-card:active {
   100% { transform: scaleY(1); }
 }
 
+.card.is-enter {
+  animation: cardIn 320ms var(--e-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 40ms);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.tile.is-swap > * {
+  animation: tileSwap 160ms var(--e-out);
+}
+
+@keyframes tileSwap {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.hero-value.is-flip {
+  animation: heroFlip 180ms var(--e-out);
+}
+
+@keyframes heroFlip {
+  from { opacity: .4; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pill.is-swap {
+  animation: pillSwap 150ms var(--e-out);
+}
+
+@keyframes pillSwap {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+
 /* Tablet */
 
 @media (min-width: 600px) {
@@ -3245,8 +3287,25 @@ button.list-card:active {
   *::before,
   *::after {
     animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+[data-motion="freeze"] *,
+[data-motion="freeze"] *::before,
+[data-motion="freeze"] *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+[data-motion="freeze"] .conn-dot::after {
+  display: none !important;
 }

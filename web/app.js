@@ -61,6 +61,7 @@
     lastSumAt: null,
     sumSeq: 0,
     lastPeak: null,
+    lastPeakKg: false,
     pauseActive: false,
     pauseStart: null,
     overload: false,
@@ -68,9 +69,7 @@
     lowSps: false,
     sessionActive: false,
     metronome: false,
-    liveDepth: 0,
     rateLevel: 0,
-    phase: 0,
     count: 0,
     cc: 0,
     cy: 0,
@@ -93,7 +92,9 @@
     rulerWidth: 0,
     scoreAnim: null,
     metricTimers: [],
-    bannerTimers: new Map()
+    bannerTimers: new Map(),
+    staggerSeq: 0,
+    swapTimer: null
   };
 
   const els = {};
@@ -101,7 +102,7 @@
   function cacheEls() {
     const ids = [
       'connPill', 'connText', 'metroBtn', 'appNav', 'modeSwitch', 'heroCard',
-      'depthValue', 'depthUnit', 'depthPill', 'depthPillIcon', 'depthPillText',
+      'tiles', 'depthValue', 'depthUnit', 'depthPill', 'depthPillIcon', 'depthPillText',
       'depthHint', 'ruler', 'rulerSvg', 'rulerMarker', 'rulerCaret', 'ctaBtn',
       'ctaTitle', 'ctaSub', 'ctaIconUse', 'rateTile', 'rateValue', 'ratePill',
       'ratePillIcon', 'ratePillText', 'rateTrack', 'rateBand', 'rateDot',
@@ -151,9 +152,21 @@
     if (el.getAttribute('href') !== href) el.setAttribute('href', href);
   }
 
+  function instantMotion() {
+    return state.opts.motion === 'freeze' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
   function setPill(pill, textEl, iconEl, text, tone, icon) {
     if (!pill) return;
-    if (pill.dataset.tone !== tone) pill.dataset.tone = tone;
+    if (pill.dataset.tone !== tone) {
+      pill.dataset.tone = tone;
+      if (!instantMotion()) {
+        pill.classList.remove('is-swap');
+        void pill.offsetWidth;
+        pill.classList.add('is-swap');
+      }
+    }
     setText(textEl, text);
     setUse(iconEl, icon || TONE_ICON[tone] || TONE_ICON.idle);
   }
@@ -167,6 +180,19 @@
     if (level === 2) return 'ok';
     if (level === 3) return 'bad';
     return 'idle';
+  }
+
+  function levelForDepth(value, info) {
+    if (!has(value) || value <= 0) return 0;
+    if (value < info.good) return 1;
+    if (value >= info.deep) return 3;
+    return 2;
+  }
+
+  function heroPeak() {
+    if (!has(state.lastPeak)) return 0;
+    if (state.lastPeakKg !== unitInfo().kg) return 0;
+    return state.lastPeak;
   }
 
   function tickNum(value) {
@@ -280,6 +306,7 @@
       theme: q.get('theme') || '',
       sheet: q.get('sheet') || '',
       info: q.get('info') || '',
+      motion: q.get('motion') || '',
       ws: q.get('ws') === '1'
     };
   }
@@ -756,16 +783,13 @@
     state.history = [];
     state.compressions = [];
     state.lastCompression = null;
-    state.lastPeak = null;
     state.pauseActive = false;
     state.pauseStart = null;
     state.overload = false;
     state.overloadUntil = 0;
     state.lowSps = false;
     state.sessionActive = false;
-    state.liveDepth = 0;
     state.rateLevel = 0;
-    state.phase = 0;
     state.count = 0;
     state.cc = 0;
     state.cy = 0;
@@ -797,12 +821,8 @@
     const displayValue = info.kg ? value : value / 10;
 
     state.frame = msg;
-    const pressing = (msg.ph || 0) !== 0;
-    state.targetDepth = pressing ? displayValue
-      : (has(state.lastPeak) ? state.lastPeak : 0);
+    state.targetDepth = displayValue;
     state.targetRate = has(msg.bpm) && msg.bpm > 0 ? msg.bpm : 60;
-    state.phase = msg.ph || 0;
-    state.liveDepth = msg.ld || 0;
     state.rateLevel = msg.rl || 0;
     state.count = has(msg.n) ? msg.n : 0;
     state.cc = has(msg.cc) ? msg.cc : 0;
@@ -855,17 +875,29 @@
 
     state.lastCompression = msg;
     state.lastPeak = toDisplay(msg.pk);
-    if (state.phase === 0) state.targetDepth = state.lastPeak;
+    state.lastPeakKg = unitInfo().kg;
     state.dotsKey = '';
     state.graphDirty = true;
+
+    if (els.depthValue) setText(els.depthValue, heroPeak().toFixed(1));
+    if (!meta.instant) {
+      pulseCounter();
+      restartHeroFlip();
+    }
 
     if (state.cal && state.cal.active && state.cal.tof) {
       state.cal.presses += 1;
       const counter = document.getElementById('calPairCount');
       if (counter) setText(counter, String(state.cal.presses));
     }
+  }
 
-    if (!meta.instant) pulseCounter();
+  function restartHeroFlip() {
+    const box = els.depthValue && els.depthValue.parentElement;
+    if (!box || instantMotion()) return;
+    box.classList.remove('is-flip');
+    void box.offsetWidth;
+    box.classList.add('is-flip');
   }
 
   function handleMessage(msg, meta) {
@@ -1066,8 +1098,13 @@
 
   function setMode(mode, send) {
     if (!MODE_TEXT[mode]) return;
+    const changed = state.mode !== mode;
     state.mode = mode;
     refreshModeButtons();
+    if (changed) {
+      staggerTiles();
+      swapTiles();
+    }
     if (send && state.transport) state.transport.send('mode ' + mode);
     if (state.sheet === 'summary') closeSheet();
   }
@@ -1119,7 +1156,7 @@
   }
 
   function pulseCounter() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (instantMotion()) return;
     const targets = [els.countValue, els.countRingNum, els.countTestNum];
     targets.forEach((el) => {
       if (el) el.classList.remove('pulse');
@@ -1134,6 +1171,58 @@
     }, 230);
   }
 
+  function runStagger(targets) {
+    if (!targets || !targets.length) return;
+    const list = targets.slice(0, 8);
+    state.staggerSeq += 1;
+    const token = String(state.staggerSeq);
+    list.forEach((el, index) => {
+      el.classList.remove('is-enter');
+      el.style.setProperty('--enter-i', String(index));
+      el.dataset.stagger = token;
+    });
+    if (instantMotion()) {
+      list.forEach((el) => {
+        el.classList.remove('is-enter');
+        el.style.removeProperty('--enter-i');
+        delete el.dataset.stagger;
+      });
+      return;
+    }
+    void list[0].offsetWidth;
+    list.forEach((el) => el.classList.add('is-enter'));
+    setTimeout(() => {
+      list.forEach((el) => {
+        if (el.dataset.stagger !== token) return;
+        el.classList.remove('is-enter');
+        el.style.removeProperty('--enter-i');
+        delete el.dataset.stagger;
+      });
+    }, 320 + list.length * 40 + 80);
+  }
+
+  function staggerCards() {
+    return $$('.screen .card').slice(0, 8);
+  }
+
+  function staggerTiles() {
+    if (!els.tiles) return;
+    runStagger($$('.tile', els.tiles));
+  }
+
+  function swapTiles() {
+    if (!els.tiles || instantMotion()) return;
+    const tiles = $$('.tile', els.tiles);
+    if (!tiles.length) return;
+    tiles.forEach((el) => el.classList.remove('is-swap'));
+    void tiles[0].offsetWidth;
+    tiles.forEach((el) => el.classList.add('is-swap'));
+    clearTimeout(state.swapTimer);
+    state.swapTimer = setTimeout(() => {
+      tiles.forEach((el) => el.classList.remove('is-swap'));
+    }, 220);
+  }
+
   function updateCta() {
     const active = state.sessionActive;
     setText(els.ctaTitle, active ? 'จบรอบ' : 'เริ่มฝึก');
@@ -1143,12 +1232,10 @@
 
   function updateHero() {
     const info = unitInfo();
-    const pressing = !!state.frame && (state.phase === 1 || state.phase === 2);
-    const value = state.targetDepth;
+    const value = heroPeak();
     setText(els.depthValue, value.toFixed(1));
 
-    const level = pressing ? state.liveDepth
-      : (state.lastCompression ? state.lastCompression.dl : 0);
+    const level = levelForDepth(value, info);
     const tone = toneForLevel(level);
     let text = 'พร้อม';
     let hint = 'เริ่มกดได้เลย';
@@ -1177,8 +1264,9 @@
       els.rulerMarker.style.transform = 'translateX(' + (fraction * width - 2).toFixed(1) + 'px)';
     }
     if (els.rulerCaret) {
-      if (has(state.lastPeak)) {
-        const peak = clamp(state.lastPeak / Math.max(.5, info.scaleMax), 0, 1);
+      const peakValue = heroPeak();
+      if (peakValue > 0) {
+        const peak = clamp(peakValue / Math.max(.5, info.scaleMax), 0, 1);
         els.rulerCaret.style.opacity = '1';
         els.rulerCaret.style.transform = 'translateX(' + (peak * width).toFixed(1) + 'px) translateX(-50%)';
       } else {
@@ -1290,7 +1378,7 @@
       const fraction = cc / 30;
       setText(els.countRingNum, String(cc));
       if (els.countRing) {
-        els.countRing.style.strokeDasharray = (fraction * 100).toFixed(2) + ' 100';
+        els.countRing.style.strokeDashoffset = (100 - fraction * 100).toFixed(2);
         els.countRing.style.stroke = cc >= 30 ? 'var(--ok)' : 'var(--accent)';
       }
       setText(els.countCycle, 'รอบที่ ' + (state.cy + 1));
@@ -1299,7 +1387,7 @@
       const fraction = remaining / 120;
       setText(els.countTestNum, fmtDuration(remaining));
       if (els.countTestRing) {
-        els.countTestRing.style.strokeDasharray = (fraction * 100).toFixed(2) + ' 100';
+        els.countTestRing.style.strokeDashoffset = (100 - fraction * 100).toFixed(2);
       }
     }
     setState(els.countTile, frame && state.sessionActive ? 'ok' : 'idle');
@@ -1490,7 +1578,7 @@
   function tick(now) {
     const dt = lastTick ? Math.min(80, now - lastTick) : 16;
     lastTick = now;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = instantMotion();
     const k = reduce ? 1 : 1 - Math.exp(-dt / 60);
     state.display.depth += (state.targetDepth - state.display.depth) * k;
     state.display.rate += (state.targetRate - state.display.rate) * k;
@@ -1559,14 +1647,23 @@
       other.classList.remove('is-open');
     });
 
-    if (els.sheetLayer.hidden) {
+    const opening = els.sheetLayer.hidden;
+    if (opening) {
       els.sheetLayer.hidden = false;
       els.sheetLayer.classList.remove('is-open');
-      void sheet.offsetWidth;
     }
     sheet.hidden = false;
-    els.sheetLayer.classList.add('is-open');
     state.sheet = name;
+    if (opening) {
+      void sheet.offsetWidth;
+      requestAnimationFrame(() => {
+        if (state.sheet === name && els.sheetLayer && !els.sheetLayer.hidden) {
+          els.sheetLayer.classList.add('is-open');
+        }
+      });
+    } else {
+      els.sheetLayer.classList.add('is-open');
+    }
     setNavActive(navIndexForSheet(name));
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
@@ -1639,7 +1736,12 @@
     return MODE_TEXT[key] || MODE_TEXT.free;
   }
 
-  function metricTone(value) {
+  function metricTone(value, ccf) {
+    if (ccf) {
+      if (value >= 60) return 'ok';
+      if (value >= 40) return 'warn';
+      return 'bad';
+    }
     if (value >= 80) return 'ok';
     if (value >= 50) return 'warn';
     return 'bad';
@@ -1648,7 +1750,7 @@
   function animateScore(target) {
     if (state.scoreAnim) cancelAnimationFrame(state.scoreAnim);
     state.scoreAnim = null;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = instantMotion();
     if (reduce) {
       setText(els.scoreValue, String(target));
       return;
@@ -1699,7 +1801,7 @@
       { box: els.metricRate, valueEl: els.mRate, ring: els.mRateRing, value: pct(sum.rg, rated) },
       { box: els.metricRecoil, valueEl: els.mRecoil, ring: els.mRecoilRing, value: pct(sum.rc, n) },
       { box: els.metricHand, valueEl: els.mHand, ring: els.mHandRing, value: pct(sum.hd, n) },
-      { box: els.metricCcf, valueEl: els.mCcf, ring: els.mCcfRing, value: clamp(Number(sum.ccf) || 0, 0, 100) }
+      { box: els.metricCcf, valueEl: els.mCcf, ring: els.mCcfRing, value: clamp(Number(sum.ccf) || 0, 0, 100), ccf: true }
     ];
 
     state.metricTimers.forEach((timer) => clearTimeout(timer));
@@ -1711,7 +1813,7 @@
     }
 
     metrics.forEach((metric) => {
-      if (metric.box) metric.box.dataset.tone = metricTone(metric.value);
+      if (metric.box) metric.box.dataset.tone = metricTone(metric.value, metric.ccf);
       setText(metric.valueEl, metric.value + '%');
       if (metric.ring) {
         metric.ring.style.transition = 'none';
@@ -1749,7 +1851,7 @@
     });
     if (els.summaryFacts) els.summaryFacts.innerHTML = factsHtml;
 
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = instantMotion();
     requestAnimationFrame(() => {
       if (els.scoreRing) els.scoreRing.style.strokeDashoffset = String(100 - score);
       metrics.forEach((metric, index) => {
@@ -2338,6 +2440,9 @@
     cacheEls();
     state.theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
     state.opts = parseUrl();
+    if (state.opts.motion === 'freeze') {
+      document.documentElement.dataset.motion = 'freeze';
+    }
     if (state.opts.theme === 'light' || state.opts.theme === 'dark') {
       state.theme = state.opts.theme;
     }
@@ -2354,6 +2459,7 @@
     else if (state.opts.demo === 'test2min' || state.opts.demo === 'test') state.mode = 'test';
     else state.mode = 'free';
     refreshModeButtons();
+    runStagger(staggerCards());
 
     requestAnimationFrame(tick);
 
