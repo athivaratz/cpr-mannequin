@@ -16,3 +16,20 @@ keeps the §9 formula for normal use. The ForceKg depth test uses
 `Generator::setKgScale(0.7f)` so the kg-only stream exercises the documented
 6 kg / 12 kg bands while the mm stream still uses the §9 depths. This is a test
 harness adjustment only; the engine and default profile keep the §2 values.
+
+## P2 sensor timing and range constants
+
+These are engineering values, not clinical numbers:
+
+- VL53L0X readings at or above 8000 mm are rejected as invalid
+  (`kMaxValidRangeMm` in `src/esp32/sensors.cpp`). The useful range is about
+  2 m, so this only filters bad I2C results.
+- Each blocking ToF read during boot and `tare` uses a 100 ms timeout. The
+  measurement budget is 20 ms, so this is generous but bounded.
+- The HX711 tare averages 10 raw readings with a 1500 ms timeout
+  (`Sensors::tareLoadCell`). The library's own `tare()` default is also 10
+  readings; the timeout is ours so a dead sensor cannot hang the task.
+
+All are tunable. Boot readiness (2 s), the 20-reading `cal weight` average (3 s),
+the 10-sample ToF rest average, the 20 Hz frame period, and the buzzer durations
+come from DESIGN.md.

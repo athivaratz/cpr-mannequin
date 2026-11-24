@@ -668,8 +668,12 @@ up-stroke, peak depth per scenario (good 54 mm, shallow 35 mm, deep 68 mm),
 rate (good 110, fast 135, slow 85), no-recoil keeps 12 mm between presses,
 wrong-hand opens the switch on 70% of presses, noisy adds ±3 mm gaussian noise
 plus occasional single-sample spikes, cycle does 30 presses then a 5 s pause,
-repeated. kg = mm through a fixed linear-ish map (`kg = 0.2*mm + 0.0012*mm*mm`)
-so kg and mm agree. Use a small xorshift PRNG; no `<random>` so results are the
+repeated. kg = mm through a fixed map `kg = 0.7*(0.2*mm + 0.0012*mm*mm)` so kg
+and mm agree and the default kg bands of §2.2 give the same levels as the mm
+bands for the three depth scenarios (35 mm ≈ 6.0 kg shallow, 54 mm ≈ 10 kg good,
+68 mm ≈ 13.4 kg deep). The 0.7 is the generator's default `kgScale`
+(`setKgScale()` changes it); `setRate(bpm)` overrides the scenario rate, which
+the tests use for 90/110/130 cpm. (Changed after P1: see OPEN_ISSUES.md.) Use a small xorshift PRNG; no `<random>` so results are the
 same on every compiler.
 
 `tools/sim/main.cpp`: `cpr_sim --scenario good --seconds 40 --sps 80 [--no-tof]
