@@ -24,7 +24,8 @@
       "*": "allow",
       "opencode.json": "deny",
       "AGENTS.md": "deny",
-      "docs/DESIGN.md": "deny"
+      "docs/DESIGN.md": "deny",
+      "docs/UI_V2.md": "deny"
     },
     "bash": {
       "*": "allow",
