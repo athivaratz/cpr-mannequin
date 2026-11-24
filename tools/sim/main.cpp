@@ -25,6 +25,7 @@ void usage(const char* prog) {
           "  --profile child|adult (default child)\n"
           "  --mode free|cycle|test\n"
           "  --no-tof            generate load-cell-only samples\n"
+          "  --esp32             use the ESP32 user thresholds and fast filter\n"
           "  --seed <n>          generator seed, default 1\n",
           prog);
 }
@@ -82,6 +83,7 @@ int main(int argc, char** argv) {
   uint32_t seconds = 40;
   uint32_t seed = 1;
   bool tof = true;
+  bool useEsp32 = false;
   bool haveScenario = false;
   const char* outPath = nullptr;
 
@@ -92,6 +94,8 @@ int main(int argc, char** argv) {
       return 0;
     } else if (match(arg, "--no-tof")) {
       tof = false;
+    } else if (match(arg, "--esp32")) {
+      useEsp32 = true;
     } else if (match(arg, "--scenario") || match(arg, "--out") ||
                match(arg, "--seconds") || match(arg, "--sps") ||
                match(arg, "--profile") || match(arg, "--mode") ||
@@ -167,10 +171,17 @@ int main(int argc, char** argv) {
   cpr::CalibrationData cal;
   cpr::calibDefaults(cal);
 
+  if (useEsp32) {
+    cpr::UserTh th;
+    cpr::userThDefaults(th);
+    cpr::userThApply(th, cfg);
+  }
+
   cpr::Engine engine;
   engine.begin(cfg, cal);
   engine.setMode(mode);
   engine.setTofPresent(tof);
+  if (useEsp32 && sps <= 20) engine.setFastFilter(true);
 
   cprsim::SimOptions opt;
   opt.sc = scenario;

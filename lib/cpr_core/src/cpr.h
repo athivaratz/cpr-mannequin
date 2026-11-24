@@ -3,6 +3,7 @@
 
 #include "cpr_types.h"
 #include "cpr_profiles.h"
+#include "cpr_settings.h"
 #include "cpr_filter.h"
 #include "cpr_calib.h"
 #include "cpr_detector.h"

@@ -105,6 +105,27 @@ class JsonBuf {
 
   void boolean(bool v) { ch(v ? '1' : '0'); }
 
+  void f2(float v) {
+    if (isnan(v)) {
+      strP(CPR_PSTR("null"));
+      return;
+    }
+    bool neg = v < 0.0f;
+    if (neg) v = -v;
+    if (v > 42949600.0f) {
+      strP(CPR_PSTR("null"));
+      return;
+    }
+    uint32_t scaled = (uint32_t)(v * 100.0f + 0.5f);
+    uint32_t whole = scaled / 100;
+    uint8_t frac = (uint8_t)(scaled % 100);
+    if (neg && scaled != 0) ch('-');
+    u32(whole);
+    ch('.');
+    ch((char)('0' + frac / 10));
+    ch((char)('0' + frac % 10));
+  }
+
   void jsonString(const char* s) {
     if (s == nullptr) s = "";
     ch('"');
@@ -282,6 +303,11 @@ size_t jsonConfig(char* buf, size_t cap, const Config& c, const CalibrationData&
   key(b, CPR_PSTR("gkg")); b.f1(c.th.goodMinKg);
   key(b, CPR_PSTR("dkg")); b.f1(c.th.deepMinKg);
   key(b, CPR_PSTR("ovkg")); b.f1(c.th.overloadKg);
+#if CPR_JSON_EXTRA
+  key(b, CPR_PSTR("ckg")); b.f1(c.th.contactKg);
+  key(b, CPR_PSTR("rkg")); b.f1(c.th.recoilKg);
+  key(b, CPR_PSTR("flt")); b.f2(c.filterAlpha);
+#endif
   key(b, CPR_PSTR("rmin")); b.u32(c.th.rateMin);
   key(b, CPR_PSTR("rmax")); b.u32(c.th.rateMax);
   key(b, CPR_PSTR("map")); b.u32(cal.mapCount);

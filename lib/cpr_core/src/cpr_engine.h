@@ -18,6 +18,7 @@ class Engine {
   void begin(const Config& cfg, const CalibrationData& cal);
   void setConfig(const Config& cfg);
   void setCalibration(const CalibrationData& cal);
+  void setFastFilter(bool on);
   void setMode(Mode m);
   void setTofPresent(bool present);
   void startSession(uint32_t tMs);

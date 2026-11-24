@@ -98,9 +98,25 @@ DESIGN.md was not edited, as the review required.
 
 ## H1 kg-only demo at 10 SPS
 
-`recordings/kgonly_good.jsonl` is generated with `--sps 10 --no-tof` because the
-stock HX711 board runs at 10 SPS. At that rate about 40% of the generated peaks
-land between samples, so the engine classifies them as shallow even though the
-waveform is a good press. `make_recordings.sh` therefore checks
-`dg/n >= 0.55` for this one recording instead of the ideal 0.80. This is the
-real board's behaviour, not a drop in the engine.
+`recordings/kgonly_good.jsonl` is generated at 10 SPS with no ToF because that
+is what the final board runs. With the old thresholds and filter about 40% of
+the peaks came out shallow and no recoil was counted; H2 fixed both (see
+below), and `make_recordings.sh` checks depth and recoil at 0.80 again.
+
+## H2 user thresholds and the 10 SPS recoil result
+
+The kg thresholds are now user-tunable on the ESP32 and stored in Preferences.
+The defaults (contact 0.5 kg, recoil 0.2 kg, good 6 kg, deep 12 kg, overload
+18 kg, filter alpha 1.0) and the accepted ranges are engineering values for the
+rubber-band damper, not clinical numbers. They are tunable for each build.
+
+`recordings/kgonly_good.jsonl` uses `--esp32`, so it runs with these defaults
+and the median switched off (the ESP32 does that by itself below 20 samples/s).
+With filter alpha 0.7 recoil came out 0/73: at 10 SPS the trough between two
+presses is only one or two samples, and the EMA lag kept the value above the
+release line, so the press ended through the leaning re-rise path with
+`recoilOk = false`. With alpha 1.0 (raw value, no smoothing) the same recording
+gives 73/73 recoil and 73/73 depth, while `norecoil` still scores 0 recoil, so
+the check still tells the two apart. That's why the default is 1.0. The
+simulator waveform has no rubber bands, so the real mannequin still needs a
+check on hardware.
