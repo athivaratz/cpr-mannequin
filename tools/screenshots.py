@@ -153,6 +153,10 @@ def main():
                             "?demo=good&seek=5&sheet=settings&motion=freeze",
                             wait_selector="#sheetSettings:not([hidden])",
                             wait_ms=650)
+                    capture(context, base, "11-thresholds-%s.png" % label,
+                            "?demo=kgonly_good&seek=5&sheet=th&motion=freeze",
+                            wait_selector="#sheetTh:not([hidden])",
+                            wait_ms=650)
 
                 capture(phone, base, "09-info-390.png",
                         "?demo=good&seek=14&sheet=info&info=score&motion=freeze",

@@ -5,8 +5,11 @@ wrong or impossible, stop and write the problem down in `docs/OPEN_ISSUES.md`
 rather than quietly doing something different.
 
 What it is: a school project, a child-sized CPR practice dummy. A load cell sits
-under the press plate, an optional VL53L0X measures plate travel, and a foil
-switch tells whether the hands are on the right spot. The firmware judges four
+under the press plate, behind a rubber-band damper that lets the plate sink about
+3 cm before it reaches the cell. The final ESP32 build has only the load cell,
+LEDs and a buzzer; the VL53L0X and the foil hand switch are still in the code
+behind `USE_VL53L0X` / `CPR_HAS_FOIL` (both 0 on `esp32dev`), and the Nano build
+keeps the foil switch. The firmware judges four
 things for every compression (depth, rate, recoil and hand position) and shows
 the result on LEDs, a buzzer and a web dashboard.
 
@@ -122,8 +125,8 @@ They live in `Thresholds` and the docs call them adjustable.
 | peakDropFrac | 0.15 | signal must fall 15% below the running max to call the peak |
 | handsOffMs | 2000 | a gap longer than this between presses counts as hands-off time |
 | maxPauseMs | 10000 | from AHA "< 10 s" |
-| filter alpha | 0.5 | EMA after median-of-3 |
-| lowSpsWarn | 15 | below this sample rate the dashboard warns (HX711 at 10 SPS) |
+| filter alpha | 0.5 (ESP32: 1.0) | EMA after median-of-3. On the ESP32 the user sets kg lines and alpha with `set th` (stored in Preferences key `"th"`, defaults 6 / 12 / 18 / 0.5 / 0.2 / 1.0), and the median is skipped below 20 samples/s, since at 10 SPS any lag hides recoil |
+| lowSpsWarn | 8 | below this sample rate the dashboard warns; a stock HX711 at 10 SPS is normal and no longer warns |
 
 ---
 
@@ -163,7 +166,7 @@ struct Thresholds {
   uint16_t rateMin, rateMax;      // per minute
   uint16_t handsOffMs, maxPauseMs;
   uint8_t  cycleCompressions;     // 30
-  uint8_t  lowSpsWarn;            // 15
+  uint8_t  lowSpsWarn;            // 8
 };
 
 struct Config {
@@ -715,7 +718,7 @@ Unity, `pio test -e native`. At least these, each a separate `RUN_TEST`:
 - 30:2: cycle scenario gives the right number of CycleDone events and pause lengths ≈ 5 s
 - pause: hands-off time and CCF for a known pause pattern
 - Test2Min SessionEnd at 120 s
-- low SPS: 10 SPS stream sets lowSps
+- low SPS: a stream below 8 SPS sets lowSps, a 10 SPS stream does not
 - metronome: 110 bpm gives 110 ticks in 60 s, no drift after 10 min
 - calibration: serialize/deserialize round trip, CRC failure rejected, fit is
   monotonic, map interpolation

@@ -25,7 +25,13 @@ accepts a WebSocket text frame that contains one command without a newline.
 ### Serial (USB)
 
 - 115200 baud, 8 data bits, no parity, 1 stop bit.
-- Device to host: JSON objects and `#` log lines, one per line.
+- On the ESP32 build, output to the USB port is **off by default**. This keeps
+  the live feed off the USB chip and stops a charger-only setup from stalling
+  the sampling task. The Nano build streams by default.
+- To turn USB output on or off, open the Serial Monitor and type `serial on` or
+  `serial off`. Any valid command also turns streaming on. The two `serial`
+  commands are answered directly on USB.
+- Device to host (when streaming): JSON objects and `#` log lines, one per line.
 - Host to device: command lines from §4.
 
 ### Network
@@ -45,11 +51,18 @@ accepts a WebSocket text frame that contains one command without a newline.
 - A JSON line is at most 280 bytes, not counting the terminating `\n`. The
   worst-case `sum` message needs more than the 240 bytes the P7 review asked
   for; see `OPEN_ISSUES.md`. Read with a buffer of at least 288 bytes.
-- `f` frames are sent at 20 Hz (one every 50 ms of device time).
+- `f` frames are sent at 20 Hz (one every 50 ms of device time). On the ESP32
+  the sampling task writes the newest frame into a single slot, and the network
+  loop sends that slot when it is fresh and at least 50 ms have passed. If the
+  network is busy, older frames are overwritten and skipped; frames never queue
+  behind `ack` or event messages.
 - `c`, `ps`, `pe`, `cy`, `ov`, and `end` are sent as soon as the engine emits
-  them, normally on the same sample.
+  them, normally on the same sample. These and `ack` messages go through the
+  output queue, so they are not lost the way a skipped frame is.
+- `diag` is sent over WebSocket only, every 5 seconds, while at least one
+  WebSocket client is connected. See §5.
 - `cfg` is sent at boot, on a WebSocket connection, after `config`, and after
-  commands that change the profile or calibration.
+  commands that change the profile, thresholds or calibration.
 - `sum` follows the `end` message for a session.
 - Commands are queued to the sampling task and answered asynchronously. An
   `ack` normally arrives within one sample period. `cal weight` may take up to
@@ -98,6 +111,8 @@ accepts a WebSocket text frame that contains one command without a newline.
   rate is not known yet.
 - `hand`/`hd`/`rc`/`ok`/`long`/`ov`/`ps`/`lsps`/`act`/`tof` are JSON numbers
   `1` or `0`, not booleans.
+- On an ESP32 without the hand switch, `hand` and `hd` are always `1` and
+  `cfg.hand` is `0`. Clients should hide hand feedback when `cfg.hand` is `0`.
 - `el` and `dur` are seconds. `off`, `lp`, `ms`, and all `t` fields are
   milliseconds.
 
@@ -108,21 +123,39 @@ case-insensitive. Blank lines are ignored.
 
 | Command | Effect |
 |---|---|
-| `tare` | Tare the load cell and re-read the ToF rest distance. |
+| `tare` | Tare the load cell (and re-read the ToF rest distance on an older ToF build). Fails with `no hx711` when no load cell is present. |
 | `profile adult` / `profile child` | Load that profile's defaults, keep the calibration. |
 | `mode free` / `mode cycle` / `mode test` | Select free, 30:2, or 2-minute mode. |
 | `start` / `stop` | Start or end a session. A session really starts on the first press. |
 | `metro on` / `metro off` | Buzzer metronome at 110 beats per minute. |
-| `cal start` | Start recording force/depth pairs. Requires ToF. |
-| `cal finish` | Fit a force-to-depth map from the recorded pairs. Requires ToF. |
+| `cal start` | Start recording force/depth pairs. Requires ToF (older build). |
+| `cal finish` | Fit a force-to-depth map from the recorded pairs. Requires ToF (older build). |
 | `cal cancel` | Discard the recorded pairs. |
 | `cal weight <kg>` | Set the load-cell scale from a known weight, e.g. `cal weight 2.0`. |
 | `cal bands <goodKg> <deepKg>` | Set the kg depth bands manually, for use without ToF. |
 | `cal peak` | Return the last compression peak in kg. Used by the no-ToF wizard. |
 | `cal save` | Write the calibration to NVS. |
 | `cal reset` | Restore default calibration. |
+| `set th <good> <deep> <over> <contact> <recoil> <filt>` | Set all six user thresholds in kg. |
+| `set <key> <value>` | Set one threshold. Keys: `good`, `deep`, `over`, `contact`, `recoil`, `filter`. |
+| `set reset` | Restore the default user thresholds. |
+| `serial on` / `serial off` | Start or stop USB output. Serial input only. |
 | `config` | Return the current configuration. |
 | `wifi pass <8-63 chars>` | Store a new AP password. Applied after reboot. ESP32 only. |
+
+`set th` takes exactly six decimal values in this order: good, deep, over,
+contact, recoil, filter alpha. `set <key>` takes one value and keeps the other
+five. `filter` accepts 0.2–1.0. Valid ranges are: `contact` 0.1–10 kg,
+`good` at least 0.5 kg and above `contact`, `deep` above `good`, `over` above
+`deep` and at most 60 kg, and `recoil` from 0 up to but not including
+`contact`. Out-of-range values get `bad range`; missing or extra tokens get
+`bad syntax`.
+
+A successful `set` writes the thresholds to Preferences (key `th`) straight
+away and is followed by a fresh `cfg`. `set reset` writes the defaults.
+
+`serial on` and `serial off` are only read from the USB Serial line, never from
+WebSocket. They are answered immediately on USB with `cmd` `serial`.
 
 ### Acknowledgements
 
@@ -144,12 +177,19 @@ Every command is answered with an `ack`:
 {"ty":"ack","cmd":"cal reset","ok":1,"msg":"ok"}
 {"ty":"ack","cmd":"config","ok":1,"msg":"ok"}
 {"ty":"ack","cmd":"wifi pass","ok":1,"msg":"saved, reboot"}
+{"ty":"ack","cmd":"set","ok":1,"msg":"ok"}
+{"ty":"ack","cmd":"serial","ok":1,"msg":"on"}
 ```
 
 `cmd` is the canonical command name without its argument. `ok` is `1` on
 success and `0` on failure. Common failures are `"no tof"`, `"no hx711"`,
-`"reading failed"`, `"bad weight"`, `"bad bands"`, `"need 2 points"`,
-`"sensor not ready"`, `"write failed"`, and `"unknown command"`.
+`"reading failed"`, `"bad weight"`, `"bad bands"`, `"bad range"`,
+`"bad syntax"`, `"need 2 points"`, `"sensor not ready"`, `"write failed"`, and
+`"unknown command"`.
+
+`tare` on the final ESP32 build answers `{"ty":"ack","cmd":"tare","ok":0,"msg":"no hx711"}`
+when the load cell is not detected. The board keeps probing for the HX711 and a
+later `tare` can succeed without a reboot.
 
 Malformed or unknown input is answered with:
 
@@ -166,7 +206,7 @@ Malformed or unknown input is answered with:
 
 Commands that change configuration or calibration are followed by a fresh
 `cfg`: `tare`, `profile`, `cal weight`, `cal bands`, `cal finish`, `cal save`,
-`cal reset`, and `config`.
+`cal reset`, `set`, `set reset`, and `config`.
 
 `stop` queues the session end. The `ack` is followed by an `end` and a `sum` as
 the sampling task drains its events.
@@ -201,7 +241,7 @@ Sent at 20 Hz.
 | `cc` | compressions in the current 30:2 cycle, 0–30 |
 | `cy` | completed 30:2 cycles |
 | `sps` | measured sample rate, samples per second |
-| `lsps` | low sample rate flag, after two full 1-second buckets |
+| `lsps` | low sample rate flag, below 8 samples/s after two full 1-second buckets |
 | `act` | session active |
 | `el` | seconds since the session's first compression |
 
@@ -309,9 +349,9 @@ A `sum` follows.
 ### `cfg` — configuration
 
 ```
-{"ty":"cfg","board":"esp32","fw":"1.0.0","prof":1,"tof":1,"src":2,
- "unit":"mm","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,
- "rmin":100,"rmax":120,"map":5,"metro":110}
+{"ty":"cfg","board":"esp32","fw":"1.0.0","prof":1,"tof":0,"hx":1,"hand":0,
+ "src":0,"unit":"kg","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,
+ "ckg":0.5,"rkg":0.2,"flt":1.0,"rmin":100,"rmax":120,"map":0,"metro":110}
 ```
 
 | Field | Meaning |
@@ -320,14 +360,50 @@ A `sum` follows.
 | `fw` | firmware version string |
 | `prof` | profile enum |
 | `tof` | ToF sensor is present |
+| `hx` | load cell (HX711) is present. ESP32 only |
+| `hand` | hand switch is present. ESP32 only |
 | `src` | source the device expects to use |
 | `unit` | `"mm"` or `"kg"` |
 | `gmin`, `dmin` | mm band start for Good and Deep |
 | `gkg`, `dkg` | kg band start for Good and Deep |
 | `ovkg` | overload kg |
+| `ckg` | kg that starts a press. ESP32 only |
+| `rkg` | kg that counts as full recoil. ESP32 only |
+| `flt` | filter alpha, 0.2–1.0. ESP32 only |
 | `rmin`, `rmax` | good rate range, per minute |
 | `map` | number of force-to-depth map points |
 | `metro` | metronome rate, beats per minute |
+
+The Nano build leaves out `hx`, `hand`, `ckg`, `rkg` and `flt` to save flash.
+On the final ESP32 build `tof` and `hand` are `0`, so the dashboard hides the
+hand cards and the ToF-only calibration controls.
+
+### `diag` — runtime diagnostics
+
+WebSocket only. Sent every 5 seconds while at least one WebSocket client is
+connected. Not sent on Serial and not queued like events.
+
+```
+{"ty":"diag","up":312,"rx":0,"rxBad":0,"qDrop":0,"sSkip":0,"fDrop":0,
+ "sps":10,"heap":180000,"ser":0,"hx":1}
+```
+
+| Field | Meaning |
+|---|---|
+| `up` | seconds since boot |
+| `rx` | total bytes read from the USB Serial line since boot |
+| `rxBad` | USB input thrown away: non-printable bytes, over-long lines, more than 20 lines in one second, a full command queue, or a line that is not a command while USB streaming is off |
+| `qDrop` | output messages dropped because the output queue was full |
+| `sSkip` | Serial output lines skipped because the USB transmit buffer was full |
+| `fDrop` | `f` frame sends skipped because the WebSocket was not writable |
+| `sps` | measured HX711 sample rate, samples per second |
+| `heap` | free heap in bytes |
+| `ser` | USB output streaming is on (`1`) or off (`0`) |
+| `hx` | HX711 is present (`1`) or not (`0`) |
+
+A charger-only setup can make `rx` and `rxBad` climb from noise on the USB
+chip. That is harmless now because frames go to Wi-Fi first and USB output is
+off. `fDrop` climbing steadily means the Wi-Fi link cannot keep up.
 
 ### `ack` — command answer
 
@@ -338,9 +414,16 @@ See §4.
 Lines that start with `#` are free text for humans. Dashboards should ignore
 them.
 
-- `# HX711 not found` — once at boot if the load cell is not ready within two
-  seconds. Frames then carry `"kg":null`.
-- `# VL53L0X not found` or `# VL53L0X no reading` — the optional ToF sensor is
-  missing or unusable; the device continues with load cell only.
-- `# HX711 is running at 10 SPS, see docs: RATE pin` — once when the measured
-  sample rate is below the configured warning level.
+- `# HX711 not found` — once at boot if the load cell is not ready within three
+  seconds. Frames then carry `"kg":null`, `cfg.hx` is `0`, and the board keeps
+  probing for the HX711 once per second without rebooting.
+- `# HX711 tare failed` or `# HX711 tare unstable` — the start-up tare did not
+  settle; the board carries on with the last average and tries to recover.
+- `# VL53L0X not found` or `# VL53L0X no reading` — an older ToF build is
+  missing the optional sensor or cannot use it; the device continues with the
+  load cell only.
+- `# HX711 sample rate is low, check the RATE pin and wiring` — once on the
+  ESP32 when the measured sample rate is below 8 samples/s. A stock 10 SPS
+  HX711 does not trigger this.
+- `# HX711 is running at 10 SPS, see docs: RATE pin` — the Nano build's wording
+  for the same low-rate warning.

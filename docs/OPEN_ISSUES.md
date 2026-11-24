@@ -120,3 +120,24 @@ gives 73/73 recoil and 73/73 depth, while `norecoil` still scores 0 recoil, so
 the check still tells the two apart. That's why the default is 1.0. The
 simulator waveform has no rubber bands, so the real mannequin still needs a
 check on hardware.
+
+## H4 junk-on-RX explanation is unproven on hardware
+
+The "old firmware could stall on USB-chip noise when no computer was listening"
+explanation behind the `หน้าเว็บค้างที่ 0` section and the `diag` `rxBad` value
+is the best fit for the symptom, but it has not been checked on a real charger-only
+board yet. Read the diag line on actual hardware before treating it as settled.
+
+## H4 threshold defaults are guesses for the damper build
+
+The default user thresholds (contact 0.5 kg, recoil 0.2 kg, good 6 kg,
+deep 12 kg, overload 18 kg, filter 1.0) were chosen for the rubber-band damper.
+They are engineering values, not measurements from a finished mannequin. Each
+build should tune them with `docs/calibration.md` after the bands settle.
+
+## H4 recoil at 120/min with 10 SPS
+
+Fast presses around 120/min can still show `ยังค้าง` with a stock 10 SPS HX711,
+because there may be only one or two samples in the trough. Raising the recoil
+line a little or setting ความไว to ไว helps. If that is not enough, the RATE pin
+mod for 80 SPS is still the reliable fix.
