@@ -6,6 +6,23 @@
 #include <stdint.h>
 #include <string.h>
 
+// On AVR every literal otherwise lands in RAM. Keep the protocol field names
+// in flash and read them one byte at a time.
+#if defined(__AVR__)
+#define CPR_PROGMEM __attribute__((__progmem__))
+#define CPR_PSTR(s) \
+  (__extension__({ static const char cpr_pstr[] CPR_PROGMEM = (s); cpr_pstr; }))
+static inline char cprReadPgmChar(const char* p) {
+  uint8_t v;
+  __asm__ __volatile__("lpm %0, Z" : "=r"(v) : "z"(p));
+  return (char)v;
+}
+#define CPR_PGM_CHAR(p) cprReadPgmChar(p)
+#else
+#define CPR_PSTR(s) (s)
+#define CPR_PGM_CHAR(p) (*(const char*)(p))
+#endif
+
 namespace cpr {
 
 namespace {
@@ -34,6 +51,15 @@ class JsonBuf {
     while (*s) ch(*s++);
   }
 
+  void strP(const char* s) {
+    if (s == nullptr) return;
+    char c = CPR_PGM_CHAR(s++);
+    while (c) {
+      ch(c);
+      c = CPR_PGM_CHAR(s++);
+    }
+  }
+
   void u32(uint32_t v) {
     char tmp[10];
     uint8_t n = 0;
@@ -59,13 +85,13 @@ class JsonBuf {
 
   void f1(float v) {
     if (isnan(v)) {
-      str("null");
+      strP(CPR_PSTR("null"));
       return;
     }
     bool neg = v < 0.0f;
     if (neg) v = -v;
     if (v > 429496000.0f) {
-      str("null");
+      strP(CPR_PSTR("null"));
       return;
     }
     uint32_t scaled = (uint32_t)(v * 10.0f + 0.5f);
@@ -88,11 +114,11 @@ class JsonBuf {
         ch('\\');
         ch((char)c);
       } else if (c == '\n') {
-        str("\\n");
+        strP(CPR_PSTR("\\n"));
       } else if (c == '\r') {
-        str("\\r");
+        strP(CPR_PSTR("\\r"));
       } else if (c == '\t') {
-        str("\\t");
+        strP(CPR_PSTR("\\t"));
       } else if (c < 0x20) {
         ch('?');
       } else {
@@ -117,34 +143,34 @@ int32_t roundInt(float v) {
 void key(JsonBuf& b, const char* name) {
   b.ch(',');
   b.ch('"');
-  b.str(name);
-  b.str("\":");
+  b.strP(name);
+  b.strP(CPR_PSTR("\":"));
 }
 
 } // namespace
 
 size_t jsonFrame(char* buf, size_t cap, const LiveState& s) {
   JsonBuf b(buf, cap);
-  b.str("{\"ty\":\"f\"");
-  key(b, "t"); b.u32(s.tMs);
-  key(b, "v"); b.f1(s.value);
-  key(b, "kg"); b.f1(s.kg);
-  key(b, "mm"); b.i32(s.mm);
-  key(b, "src"); b.u32((uint32_t)s.source);
-  key(b, "ph"); b.u32((uint32_t)s.phase);
-  key(b, "ld"); b.u32((uint32_t)s.liveDepth);
-  key(b, "bpm"); b.u32(s.bpm);
-  key(b, "rl"); b.u32((uint32_t)s.rate);
-  key(b, "hand"); b.boolean(s.handOk);
-  key(b, "ov"); b.boolean(s.overload);
-  key(b, "ps"); b.boolean(s.inPause);
-  key(b, "n"); b.u32(s.count);
-  key(b, "cc"); b.u32(s.cycleCount);
-  key(b, "cy"); b.u32(s.cycles);
-  key(b, "sps"); b.u32(s.sps);
-  key(b, "lsps"); b.boolean(s.lowSps);
-  key(b, "act"); b.boolean(s.sessionActive);
-  key(b, "el"); b.u32(s.elapsedS);
+  b.strP(CPR_PSTR("{\"ty\":\"f\""));
+  key(b, CPR_PSTR("t")); b.u32(s.tMs);
+  key(b, CPR_PSTR("v")); b.f1(s.value);
+  key(b, CPR_PSTR("kg")); b.f1(s.kg);
+  key(b, CPR_PSTR("mm")); b.i32(s.mm);
+  key(b, CPR_PSTR("src")); b.u32((uint32_t)s.source);
+  key(b, CPR_PSTR("ph")); b.u32((uint32_t)s.phase);
+  key(b, CPR_PSTR("ld")); b.u32((uint32_t)s.liveDepth);
+  key(b, CPR_PSTR("bpm")); b.u32(s.bpm);
+  key(b, CPR_PSTR("rl")); b.u32((uint32_t)s.rate);
+  key(b, CPR_PSTR("hand")); b.boolean(s.handOk);
+  key(b, CPR_PSTR("ov")); b.boolean(s.overload);
+  key(b, CPR_PSTR("ps")); b.boolean(s.inPause);
+  key(b, CPR_PSTR("n")); b.u32(s.count);
+  key(b, CPR_PSTR("cc")); b.u32(s.cycleCount);
+  key(b, CPR_PSTR("cy")); b.u32(s.cycles);
+  key(b, CPR_PSTR("sps")); b.u32(s.sps);
+  key(b, CPR_PSTR("lsps")); b.boolean(s.lowSps);
+  key(b, CPR_PSTR("act")); b.boolean(s.sessionActive);
+  key(b, CPR_PSTR("el")); b.u32(s.elapsedS);
   b.ch('}');
   return b.ok() ? b.len() : 0;
 }
@@ -153,42 +179,42 @@ size_t jsonEvent(char* buf, size_t cap, const Event& e) {
   JsonBuf b(buf, cap);
   switch (e.type) {
     case EventType::Compression:
-      b.str("{\"ty\":\"c\"");
-      key(b, "t"); b.u32(e.tMs);
-      key(b, "i"); b.u32(e.c.index);
-      key(b, "pk"); b.f1(e.c.peak);
-      key(b, "src"); b.u32((uint32_t)e.c.source);
-      key(b, "dl"); b.u32((uint32_t)e.c.depth);
-      key(b, "rl"); b.u32((uint32_t)e.c.rate);
-      key(b, "bpm"); b.u32(e.c.bpm);
-      key(b, "rc"); b.boolean(e.c.recoilOk);
-      key(b, "hd"); b.boolean(e.c.handOk);
-      key(b, "ok"); b.boolean(e.c.allOk);
+      b.strP(CPR_PSTR("{\"ty\":\"c\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
+      key(b, CPR_PSTR("i")); b.u32(e.c.index);
+      key(b, CPR_PSTR("pk")); b.f1(e.c.peak);
+      key(b, CPR_PSTR("src")); b.u32((uint32_t)e.c.source);
+      key(b, CPR_PSTR("dl")); b.u32((uint32_t)e.c.depth);
+      key(b, CPR_PSTR("rl")); b.u32((uint32_t)e.c.rate);
+      key(b, CPR_PSTR("bpm")); b.u32(e.c.bpm);
+      key(b, CPR_PSTR("rc")); b.boolean(e.c.recoilOk);
+      key(b, CPR_PSTR("hd")); b.boolean(e.c.handOk);
+      key(b, CPR_PSTR("ok")); b.boolean(e.c.allOk);
       break;
     case EventType::PauseStart:
-      b.str("{\"ty\":\"ps\"");
-      key(b, "t"); b.u32(e.tMs);
+      b.strP(CPR_PSTR("{\"ty\":\"ps\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
       break;
     case EventType::PauseEnd:
-      b.str("{\"ty\":\"pe\"");
-      key(b, "t"); b.u32(e.tMs);
-      key(b, "ms"); b.u32(e.pauseMs);
-      key(b, "long"); b.boolean(e.pauseTooLong);
+      b.strP(CPR_PSTR("{\"ty\":\"pe\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
+      key(b, CPR_PSTR("ms")); b.u32(e.pauseMs);
+      key(b, CPR_PSTR("long")); b.boolean(e.pauseTooLong);
       break;
     case EventType::CycleDone:
-      b.str("{\"ty\":\"cy\"");
-      key(b, "t"); b.u32(e.tMs);
-      key(b, "cy"); b.u32(e.cycle);
-      key(b, "ms"); b.u32(e.pauseMs);
-      key(b, "long"); b.boolean(e.pauseTooLong);
+      b.strP(CPR_PSTR("{\"ty\":\"cy\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
+      key(b, CPR_PSTR("cy")); b.u32(e.cycle);
+      key(b, CPR_PSTR("ms")); b.u32(e.pauseMs);
+      key(b, CPR_PSTR("long")); b.boolean(e.pauseTooLong);
       break;
     case EventType::SessionEnd:
-      b.str("{\"ty\":\"end\"");
-      key(b, "t"); b.u32(e.tMs);
+      b.strP(CPR_PSTR("{\"ty\":\"end\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
       break;
     case EventType::Overload:
-      b.str("{\"ty\":\"ov\"");
-      key(b, "t"); b.u32(e.tMs);
+      b.strP(CPR_PSTR("{\"ty\":\"ov\""));
+      key(b, CPR_PSTR("t")); b.u32(e.tMs);
       break;
   }
   b.ch('}');
@@ -203,29 +229,29 @@ size_t jsonSummary(char* buf, size_t cap, const SessionStats& s, Mode m, Profile
                          ? ((s.sumBpm + s.rateRated / 2) / s.rateRated)
                          : 0;
 
-  b.str("{\"ty\":\"sum\"");
-  key(b, "mode"); b.u32((uint32_t)m);
-  key(b, "prof"); b.u32((uint32_t)p);
-  key(b, "n"); b.u32(s.count);
-  key(b, "dg"); b.u32(s.depthGood);
-  key(b, "dsh"); b.u32(s.depthShallow);
-  key(b, "dd"); b.u32(s.depthDeep);
-  key(b, "rr"); b.u32(s.rateRated);
-  key(b, "rg"); b.u32(s.rateGood);
-  key(b, "rs"); b.u32(s.rateSlow);
-  key(b, "rf"); b.u32(s.rateFast);
-  key(b, "rc"); b.u32(s.recoilGood);
-  key(b, "hd"); b.u32(s.handGood);
-  key(b, "ok"); b.u32(s.allGood);
-  key(b, "dur"); b.u32(dur);
-  key(b, "off"); b.u32(s.handsOffMs);
-  key(b, "lp"); b.u32(s.longestPauseMs);
-  key(b, "plong"); b.u32(s.pausesTooLong);
-  key(b, "pk"); b.f1(meanPeak);
-  key(b, "bpm"); b.u32(meanBpm);
-  key(b, "cy"); b.u32(s.cycles);
-  key(b, "ccf"); b.u32(ccfPercent(s));
-  key(b, "score"); b.u32(score(s));
+  b.strP(CPR_PSTR("{\"ty\":\"sum\""));
+  key(b, CPR_PSTR("mode")); b.u32((uint32_t)m);
+  key(b, CPR_PSTR("prof")); b.u32((uint32_t)p);
+  key(b, CPR_PSTR("n")); b.u32(s.count);
+  key(b, CPR_PSTR("dg")); b.u32(s.depthGood);
+  key(b, CPR_PSTR("dsh")); b.u32(s.depthShallow);
+  key(b, CPR_PSTR("dd")); b.u32(s.depthDeep);
+  key(b, CPR_PSTR("rr")); b.u32(s.rateRated);
+  key(b, CPR_PSTR("rg")); b.u32(s.rateGood);
+  key(b, CPR_PSTR("rs")); b.u32(s.rateSlow);
+  key(b, CPR_PSTR("rf")); b.u32(s.rateFast);
+  key(b, CPR_PSTR("rc")); b.u32(s.recoilGood);
+  key(b, CPR_PSTR("hd")); b.u32(s.handGood);
+  key(b, CPR_PSTR("ok")); b.u32(s.allGood);
+  key(b, CPR_PSTR("dur")); b.u32(dur);
+  key(b, CPR_PSTR("off")); b.u32(s.handsOffMs);
+  key(b, CPR_PSTR("lp")); b.u32(s.longestPauseMs);
+  key(b, CPR_PSTR("plong")); b.u32(s.pausesTooLong);
+  key(b, CPR_PSTR("pk")); b.f1(meanPeak);
+  key(b, CPR_PSTR("bpm")); b.u32(meanBpm);
+  key(b, CPR_PSTR("cy")); b.u32(s.cycles);
+  key(b, CPR_PSTR("ccf")); b.u32(ccfPercent(s));
+  key(b, CPR_PSTR("score")); b.u32(score(s));
   b.ch('}');
   return b.ok() ? b.len() : 0;
 }
@@ -239,32 +265,32 @@ size_t jsonConfig(char* buf, size_t cap, const Config& c, const CalibrationData&
   const char* unit = (src == Source::ForceKg) ? "kg" : "mm";
 
   JsonBuf b(buf, cap);
-  b.str("{\"ty\":\"cfg\"");
-  key(b, "board"); b.jsonString(board);
-  key(b, "fw"); b.jsonString(fw);
-  key(b, "prof"); b.u32((uint32_t)c.profile);
-  key(b, "tof"); b.boolean(tofPresent);
-  key(b, "src"); b.u32((uint32_t)src);
-  key(b, "unit"); b.jsonString(unit);
-  key(b, "gmin"); b.i32(roundInt(c.th.goodMinMm));
-  key(b, "dmin"); b.i32(roundInt(c.th.deepMinMm));
-  key(b, "gkg"); b.f1(c.th.goodMinKg);
-  key(b, "dkg"); b.f1(c.th.deepMinKg);
-  key(b, "ovkg"); b.f1(c.th.overloadKg);
-  key(b, "rmin"); b.u32(c.th.rateMin);
-  key(b, "rmax"); b.u32(c.th.rateMax);
-  key(b, "map"); b.u32(cal.mapCount);
-  key(b, "metro"); b.u32(c.metronomeBpm);
+  b.strP(CPR_PSTR("{\"ty\":\"cfg\""));
+  key(b, CPR_PSTR("board")); b.jsonString(board);
+  key(b, CPR_PSTR("fw")); b.jsonString(fw);
+  key(b, CPR_PSTR("prof")); b.u32((uint32_t)c.profile);
+  key(b, CPR_PSTR("tof")); b.boolean(tofPresent);
+  key(b, CPR_PSTR("src")); b.u32((uint32_t)src);
+  key(b, CPR_PSTR("unit")); b.jsonString(unit);
+  key(b, CPR_PSTR("gmin")); b.i32(roundInt(c.th.goodMinMm));
+  key(b, CPR_PSTR("dmin")); b.i32(roundInt(c.th.deepMinMm));
+  key(b, CPR_PSTR("gkg")); b.f1(c.th.goodMinKg);
+  key(b, CPR_PSTR("dkg")); b.f1(c.th.deepMinKg);
+  key(b, CPR_PSTR("ovkg")); b.f1(c.th.overloadKg);
+  key(b, CPR_PSTR("rmin")); b.u32(c.th.rateMin);
+  key(b, CPR_PSTR("rmax")); b.u32(c.th.rateMax);
+  key(b, CPR_PSTR("map")); b.u32(cal.mapCount);
+  key(b, CPR_PSTR("metro")); b.u32(c.metronomeBpm);
   b.ch('}');
   return b.ok() ? b.len() : 0;
 }
 
 size_t jsonAck(char* buf, size_t cap, const char* cmd, bool ok, const char* msg) {
   JsonBuf b(buf, cap);
-  b.str("{\"ty\":\"ack\"");
-  key(b, "cmd"); b.jsonString(cmd);
-  key(b, "ok"); b.boolean(ok);
-  key(b, "msg"); b.jsonString(msg);
+  b.strP(CPR_PSTR("{\"ty\":\"ack\""));
+  key(b, CPR_PSTR("cmd")); b.jsonString(cmd);
+  key(b, CPR_PSTR("ok")); b.boolean(ok);
+  key(b, CPR_PSTR("msg")); b.jsonString(msg);
   b.ch('}');
   return b.ok() ? b.len() : 0;
 }

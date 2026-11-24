@@ -33,3 +33,25 @@ These are engineering values, not clinical numbers:
 All are tunable. Boot readiness (2 s), the 20-reading `cal weight` average (3 s),
 the 10-sample ToF rest average, the 20 Hz frame period, and the buzzer durations
 come from DESIGN.md.
+
+## P3 Nano flash: VL53L0X does not fit
+
+The Nano firmware is complete for both load-cell-only and ToF operation, but
+`env:nano` builds with `USE_VL53L0X=0`. With the Pololu VL53L0X library and Wire
+enabled, the same code is 35 682 bytes against the 30 720-byte application
+limit of both Nano bootloader boards, and static RAM is 1 596 bytes (also over
+the 1 500-byte target). The load-cell-only build is 30 076 bytes with 1 366
+bytes of RAM. No combination of the normal size options closed a gap that
+large.
+
+`src/nano/sensors.cpp` still contains the high-speed, continuous, non-blocking
+ToF path behind `#if USE_VL53L0X`. Build with `-DUSE_VL53L0X=1` to exercise it
+on a board with more flash, or after freeing roughly 4 KB elsewhere.
+
+## P3 Nano RAM and core strings
+
+To keep static RAM under 1 500 bytes, the AVR build stores the JSON field names
+and command words in flash (`cpr_json.cpp`, `cpr_command.cpp`) and the Nano
+sketch copies its short ack strings out of flash before calling `jsonAck`. The
+native build and the ESP32 build use the same code paths without the AVR
+attribute. The Nano report is 1 366 bytes of data+bss.
