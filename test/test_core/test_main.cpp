@@ -50,7 +50,7 @@ RunOut runScenario(cprsim::Scenario sc, uint16_t seconds, uint16_t sps, bool tof
   cprsim::Generator gen;
   gen.begin(opt);
   if (rateOverride != 0) gen.setRate(rateOverride);
-  if (kgScale != 1.0f) gen.setKgScale(kgScale);
+  gen.setKgScale(kgScale);
 
   RunOut out;
   memset(&out, 0, sizeof(out));

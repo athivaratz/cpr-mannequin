@@ -7,15 +7,23 @@ DESIGN.md §9 says the `fast` and `slow` scenarios use 135 and 85 cpm, while
 defaults. `cprsim::Generator::setRate()` lets the unit test run the same
 waveform at 90 and 130 cpm without changing the public scenario set.
 
-## Simulator kg curve and the default kg bands
+## Simulator cycle recording length
 
-DESIGN.md §9 maps mm to kg with `kg = 0.2*mm + 0.0012*mm*mm`. With the default
-kg bands from §2.2 (6 kg / 12 kg) the 35, 54 and 68 mm scenario peaks map to
-about 8.5, 14.3 and 19.1 kg, so all three land in the Deep band. The generator
-keeps the §9 formula for normal use. The ForceKg depth test uses
-`Generator::setKgScale(0.7f)` so the kg-only stream exercises the documented
-6 kg / 12 kg bands while the mm stream still uses the §9 depths. This is a test
-harness adjustment only; the engine and default profile keep the §2 values.
+DESIGN.md §9 asks for a 75 s cycle recording. At the cycle scenario's 110 cpm
+waveform, 30 presses take about 16.4 s and the 5 s breath pause makes a cycle
+about 21.4 s, so 75 s only completes three cycles. The P5 acceptance check asks
+for `cy >= 4` in the summary, so `make_recordings.sh` generates 90 s for
+`recordings/cycle.jsonl`. The generator itself is unchanged and still uses the
+§9 30-press / 5 s cycle.
+
+## Simulator kg curve and the default kg bands (resolved)
+
+DESIGN.md §9 now scales the generator's mm-to-kg curve by 0.7 by default:
+`kg = 0.7*(0.2*mm + 0.0012*mm*mm)`. The 35, 54 and 68 mm scenario peaks map to
+about 6.0, 10.0 and 13.4 kg, so the default §2.2 bands (6 kg / 12 kg) classify
+the three depth scenarios the same way the mm bands do. `setKgScale()` is still
+there for tests that want the unscaled curve. The engine and default profile
+keep the §2 values.
 
 ## P2 sensor timing and range constants
 

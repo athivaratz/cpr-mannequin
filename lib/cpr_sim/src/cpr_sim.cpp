@@ -41,7 +41,7 @@ Generator::Generator() {
   seconds_ = 40;
   profile_ = cpr::Profile::Adult;
   rate_ = 110;
-  kgScale_ = 1.0f;
+  kgScale_ = 0.7f;
   sampleIndex_ = 0;
   totalSamples_ = 0;
   rng_ = 1;
