@@ -72,3 +72,17 @@ so the dashboard cannot show the exact number of (kg, mm) pairs while
 `cal start` and labels the number "ครั้งที่กด". The device still records every
 sample pair and `cal finish` uses the full set; only the live display is
 approximate.
+
+## P7 JSON line length: 280 bytes, not 200 or 240
+
+DESIGN.md §3.13 says every JSON message is at most 200 bytes. That is already
+too small for `recordings/cycle.jsonl`, whose `sum` line is 210 bytes, so the
+P7 review asked for a 240-byte limit. A constructed worst-case `SessionStats`
+(every counter 65535, every uint32 4294967295, peak 999.9, cycles 255) produces
+a `sum` line of 259 bytes, so 240 still would not hold it.
+
+We used `cpr::kMaxJsonLine = 280` in `cpr_json.h`. The ESP32 output queue slot
+and line buffers are `kMaxJsonLine + 8` (288 bytes); the single Nano line
+buffer is `kMaxJsonLine + 1` (281 bytes). The Nano static RAM is still under
+the 1500-byte target. Protocol consumers should read with a 288-byte buffer.
+DESIGN.md was not edited, as the review required.

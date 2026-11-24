@@ -13,7 +13,7 @@ namespace {
 
 constexpr const char* kFirmwareVersion = "1.0.0";
 constexpr uint32_t kFramePeriodMs = 50;
-constexpr size_t kLineLength = 208;
+constexpr size_t kLineLength = cpr::kMaxJsonLine + 1;
 constexpr size_t kCmdLength = 64;
 
 cpr::Engine g_engine;

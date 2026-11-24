@@ -54,20 +54,20 @@ bool writeLine(FILE* out, const char* buf, size_t len) {
 }
 
 bool writeEvent(FILE* out, const cpr::Event& ev) {
-  char buf[256];
+  char buf[cpr::kMaxJsonLine + 8];
   size_t len = cpr::jsonEvent(buf, sizeof(buf), ev);
   return writeLine(out, buf, len);
 }
 
 bool writeSummary(FILE* out, const cpr::Engine& engine, cpr::Mode mode,
                   cpr::Profile profile) {
-  char buf[256];
+  char buf[cpr::kMaxJsonLine + 8];
   size_t len = cpr::jsonSummary(buf, sizeof(buf), engine.stats(), mode, profile);
   return writeLine(out, buf, len);
 }
 
 bool writeFrame(FILE* out, const cpr::Engine& engine) {
-  char buf[256];
+  char buf[cpr::kMaxJsonLine + 8];
   size_t len = cpr::jsonFrame(buf, sizeof(buf), engine.live());
   return writeLine(out, buf, len);
 }
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   cprsim::Generator gen;
   gen.begin(opt);
 
-  char cfgBuf[256];
+  char cfgBuf[cpr::kMaxJsonLine + 8];
   size_t cfgLen = cpr::jsonConfig(cfgBuf, sizeof(cfgBuf), cfg, cal, tof,
                                   kBoard, kFirmware);
   if (!writeLine(out, cfgBuf, cfgLen)) {

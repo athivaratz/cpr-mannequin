@@ -42,6 +42,9 @@ accepts a WebSocket text frame that contains one command without a newline.
 
 ## 2. Timing
 
+- A JSON line is at most 280 bytes, not counting the terminating `\n`. The
+  worst-case `sum` message needs more than the 240 bytes the P7 review asked
+  for; see `OPEN_ISSUES.md`. Read with a buffer of at least 288 bytes.
 - `f` frames are sent at 20 Hz (one every 50 ms of device time).
 - `c`, `ps`, `pe`, `cy`, `ov`, and `end` are sent as soon as the engine emits
   them, normally on the same sample.

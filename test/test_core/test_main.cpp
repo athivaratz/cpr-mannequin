@@ -599,7 +599,7 @@ void test_json() {
   s.sessionActive = true;
   s.elapsedS = 9;
 
-  char buf[256];
+  char buf[320];
   size_t len = cpr::jsonFrame(buf, sizeof(buf), s);
   TEST_ASSERT_TRUE(len > 0);
   TEST_ASSERT_EQUAL_STRING(
@@ -685,16 +685,146 @@ void test_json() {
   TEST_ASSERT_NOT_NULL(strstr(buf, "\"v\":null"));
   TEST_ASSERT_NOT_NULL(strstr(buf, "\"kg\":null"));
 
-  TEST_ASSERT_TRUE(cpr::jsonFrame(buf, sizeof(buf), s) <= 200);
-  TEST_ASSERT_TRUE(cpr::jsonEvent(buf, sizeof(buf), e) <= 200);
+  TEST_ASSERT_TRUE(cpr::jsonFrame(buf, sizeof(buf), s) <= cpr::kMaxJsonLine);
+  TEST_ASSERT_TRUE(cpr::jsonEvent(buf, sizeof(buf), e) <= cpr::kMaxJsonLine);
   TEST_ASSERT_TRUE(cpr::jsonSummary(buf, sizeof(buf), st, cpr::Mode::Free,
-                                    cpr::Profile::Child) <= 200);
+                                    cpr::Profile::Child) <= cpr::kMaxJsonLine);
   TEST_ASSERT_TRUE(cpr::jsonConfig(buf, sizeof(buf), cfg, cal, true, "esp32",
-                                   "1.0.0") <= 200);
-  TEST_ASSERT_TRUE(cpr::jsonAck(buf, sizeof(buf), "tare", false, "bad") <= 200);
+                                   "1.0.0") <= cpr::kMaxJsonLine);
+  TEST_ASSERT_TRUE(cpr::jsonAck(buf, sizeof(buf), "tare", false, "bad") <= cpr::kMaxJsonLine);
 
   char tiny[8];
   TEST_ASSERT_EQUAL_UINT32(0, cpr::jsonFrame(tiny, sizeof(tiny), s));
+}
+
+void test_json_worst_case() {
+  char buf[cpr::kMaxJsonLine + 32];
+
+  cpr::SessionStats st;
+  memset(&st, 0, sizeof(st));
+  st.count = 65535;
+  st.depthGood = 65535;
+  st.depthShallow = 65535;
+  st.depthDeep = 65535;
+  st.rateRated = 65535;
+  st.rateGood = 65535;
+  st.rateSlow = 65535;
+  st.rateFast = 65535;
+  st.recoilGood = 65535;
+  st.handGood = 65535;
+  st.allGood = 65535;
+  st.firstMs = 4294967295UL;
+  st.lastMs = 4294967295UL;
+  st.handsOffMs = 4294967295UL;
+  st.longestPauseMs = 4294967295UL;
+  st.pausesTooLong = 65535;
+  st.sumPeak = 999.9f * 65535.0f;
+  st.sumBpm = 4294967295UL;
+  st.cycles = 255;
+
+  size_t len = cpr::jsonSummary(buf, sizeof(buf), st, cpr::Mode::Test2Min,
+                                cpr::Profile::Child);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+
+  // A long session can make the duration field wider even when the rest is
+  // already at its maximum.
+  st.firstMs = 0;
+  len = cpr::jsonSummary(buf, sizeof(buf), st, cpr::Mode::Cycle30x2,
+                         cpr::Profile::Child);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+
+  cpr::LiveState s;
+  memset(&s, 0, sizeof(s));
+  s.tMs = 4294967295UL;
+  s.value = 429496000.0f;
+  s.kg = 429496000.0f;
+  s.mm = 32767;
+  s.source = (cpr::Source)255;
+  s.phase = (cpr::Phase)255;
+  s.liveDepth = (cpr::DepthLevel)255;
+  s.bpm = 255;
+  s.rate = (cpr::RateLevel)255;
+  s.handOk = true;
+  s.overload = true;
+  s.inPause = true;
+  s.count = 65535;
+  s.cycleCount = 255;
+  s.cycles = 255;
+  s.sps = 255;
+  s.lowSps = true;
+  s.sessionActive = true;
+  s.elapsedS = 65535;
+
+  len = cpr::jsonFrame(buf, sizeof(buf), s);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+
+  const cpr::EventType types[] = {
+      cpr::EventType::Compression, cpr::EventType::PauseStart,
+      cpr::EventType::PauseEnd, cpr::EventType::CycleDone,
+      cpr::EventType::SessionEnd, cpr::EventType::Overload};
+  for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); ++i) {
+    cpr::Event e;
+    memset(&e, 0, sizeof(e));
+    e.type = types[i];
+    e.tMs = 4294967295UL;
+    e.c.index = 65535;
+    e.c.tStartMs = 4294967295UL;
+    e.c.tPeakMs = 4294967295UL;
+    e.c.peak = 429496000.0f;
+    e.c.source = (cpr::Source)255;
+    e.c.depth = (cpr::DepthLevel)255;
+    e.c.rate = (cpr::RateLevel)255;
+    e.c.bpm = 255;
+    e.c.recoilOk = true;
+    e.c.handOk = true;
+    e.c.allOk = true;
+    e.pauseMs = 4294967295UL;
+    e.cycle = 255;
+    e.pauseTooLong = true;
+
+    len = cpr::jsonEvent(buf, sizeof(buf), e);
+    TEST_ASSERT_TRUE(len > 0);
+    TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+  }
+
+  cpr::Config cfg;
+  memset(&cfg, 0, sizeof(cfg));
+  cfg.profile = (cpr::Profile)255;
+  cfg.th.goodMinMm = 999.9f;
+  cfg.th.deepMinMm = 999.9f;
+  cfg.th.contactMm = 999.9f;
+  cfg.th.releaseMm = 999.9f;
+  cfg.th.recoilMm = 999.9f;
+  cfg.th.restartDeltaMm = 999.9f;
+  cfg.th.contactKg = 429496000.0f;
+  cfg.th.releaseKg = 429496000.0f;
+  cfg.th.recoilKg = 429496000.0f;
+  cfg.th.goodMinKg = 429496000.0f;
+  cfg.th.deepMinKg = 429496000.0f;
+  cfg.th.overloadKg = 429496000.0f;
+  cfg.th.restartDeltaKg = 429496000.0f;
+  cfg.th.peakDropFrac = 429496000.0f;
+  cfg.th.rateMin = 65535;
+  cfg.th.rateMax = 65535;
+  cfg.th.handsOffMs = 65535;
+  cfg.th.maxPauseMs = 65535;
+  cfg.th.cycleCompressions = 255;
+  cfg.th.lowSpsWarn = 255;
+  cfg.filterAlpha = 429496000.0f;
+  cfg.metronomeBpm = 65535;
+
+  cpr::CalibrationData cal;
+  cpr::calibDefaults(cal);
+  cal.mapCount = 255;
+  cal.goodMinKg = 429496000.0f;
+  cal.deepMinKg = 429496000.0f;
+
+  len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, true, "esp32", "1.0.0");
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
 }
 
 void test_size() {
@@ -753,6 +883,7 @@ int main(int, char**) {
   RUN_TEST(test_calibration_map_interp);
   RUN_TEST(test_command_parser);
   RUN_TEST(test_json);
+  RUN_TEST(test_json_worst_case);
   RUN_TEST(test_size);
   RUN_TEST(test_score);
   return UNITY_END();

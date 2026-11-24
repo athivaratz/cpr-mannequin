@@ -19,7 +19,7 @@ namespace {
 constexpr const char* kFirmwareVersion = "1.0.0";
 constexpr const char* kDefaultWifiPass = "cprtrain123";
 constexpr size_t kOutQueueLength = 24;
-constexpr size_t kOutLineLength = 208;
+constexpr size_t kOutLineLength = cpr::kMaxJsonLine + 8;
 constexpr size_t kCmdQueueLength = 8;
 constexpr size_t kCmdLineLength = 64;
 constexpr uint32_t kFramePeriodMs = 50;
@@ -37,6 +37,7 @@ Sensors g_sensors;
 Feedback g_feedback;
 
 bool g_lowSpsWarned = false;
+bool g_lineTooLongLogged = false;
 float g_lastPeakKg = NAN;
 
 bool isBlank(const char* line) {
@@ -50,9 +51,21 @@ bool isBlank(const char* line) {
 void queueLine(const char* line, bool important) {
   if (g_outQueue == nullptr || line == nullptr) return;
 
+  const size_t length = strlen(line);
   char buffer[kOutLineLength];
-  strncpy(buffer, line, sizeof(buffer) - 1);
-  buffer[sizeof(buffer) - 1] = '\0';
+  if (length >= sizeof(buffer)) {
+    if (!g_lineTooLongLogged) {
+      g_lineTooLongLogged = true;
+      const char* message = "# line too long";
+      memset(buffer, 0, sizeof(buffer));
+      strncpy(buffer, message, sizeof(buffer) - 1);
+      xQueueSend(g_outQueue, buffer, portMAX_DELAY);
+    }
+    return;
+  }
+
+  memset(buffer, 0, sizeof(buffer));
+  memcpy(buffer, line, length + 1);
 
   const TickType_t wait = important ? portMAX_DELAY : 0;
   xQueueSend(g_outQueue, buffer, wait);

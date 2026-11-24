@@ -72,7 +72,7 @@
     const ids = [
       'connPill', 'connText', 'settingsBtn', 'depthChip', 'depthValue', 'depthUnit',
       'depthHint', 'targetText', 'lastPeakText', 'gaugeBand', 'gaugeFill', 'gaugePeak',
-      'gaugeAxis', 'rateChip', 'rateArc', 'rateNeedle', 'rateValue', 'recoilIcon',
+      'gaugeAxis', 'rateChip', 'rateArc', 'rateMarker', 'rateValue', 'recoilIcon',
       'recoilText', 'recoilDots', 'handIcon', 'handText', 'handTarget', 'counterChip',
       'counterValue', 'freeElapsed', 'freeGood', 'counterCard',
       'ringCount', 'counterRing', 'cycleText', 'cycleTotal', 'testCountdown', 'testCount',
@@ -1053,7 +1053,7 @@
   function updateHero() {
     const info = unitInfo();
     const live = state.frame;
-    const pressing = !!live && state.phase !== 0;
+    const pressing = !!live && (state.phase === 1 || state.phase === 2);
     const value = pressing ? state.display.depth
       : (has(state.lastPeak) ? state.lastPeak : 0);
     setText(els.depthValue, value.toFixed(1));
@@ -1063,25 +1063,24 @@
     let hint = state.status === 'off' ? 'เชื่อมต่อหุ่นเพื่อเริ่มฝึก' : 'เริ่มกดเพื่อวัดความลึก';
 
     const last = state.lastCompression;
-    if (last) {
-      if (last.dl === 1) {
-        chipText = 'ตื้นไป';
-        chipTone = 'chip-warn';
-        hint = 'กดให้ลึกอีกนิด';
-      } else if (last.dl === 2) {
-        chipText = 'ลึกพอดี';
-        chipTone = 'chip-ok';
-        hint = 'ความลึกอยู่ในช่วงเป้าหมาย';
-      } else if (last.dl === 3) {
-        chipText = 'ลึกเกินไป';
-        chipTone = 'chip-bad';
-        hint = 'กดเบาลงหน่อย';
-      }
+    const shownLevel = pressing ? state.liveDepth : (last ? last.dl : 0);
+    if (shownLevel === 1) {
+      chipText = 'ตื้นไป';
+      chipTone = 'chip-warn';
+      hint = 'กดให้ลึกอีกนิด';
+    } else if (shownLevel === 2) {
+      chipText = 'ลึกพอดี';
+      chipTone = 'chip-ok';
+      hint = 'ความลึกอยู่ในช่วงเป้าหมาย';
+    } else if (shownLevel === 3) {
+      chipText = 'ลึกเกินไป';
+      chipTone = 'chip-bad';
+      hint = 'กดเบาลงหน่อย';
     }
     setChip(els.depthChip, chipText, chipTone);
 
     if (els.gaugeFill) {
-      const level = pressing ? state.liveDepth : 0;
+      const level = pressing ? state.liveDepth : (last ? last.dl : 0);
       const tone = level === 1 ? 'is-warn' : level === 2 ? 'is-ok'
         : level === 3 ? 'is-bad' : '';
       const nextClass = 'gauge-fill' + (tone ? ' ' + tone : '');
@@ -1107,16 +1106,22 @@
     const bpm = state.frame && has(state.frame.bpm) ? state.frame.bpm : 0;
     const shown = clamp(state.display.rate, 60, 160);
     const fraction = clamp((shown - 60) / 100, 0, 1);
+    const rateColor = state.rateLevel === 1 ? 'var(--warn)'
+      : state.rateLevel === 2 ? 'var(--ok)'
+        : state.rateLevel === 3 ? 'var(--bad)' : 'var(--accent)';
     if (els.rateArc) {
       els.rateArc.style.opacity = bpm > 0 ? '1' : '0';
       els.rateArc.style.strokeDasharray = (fraction * 100).toFixed(2) + ' 100';
-      const rateColor = state.rateLevel === 1 ? 'var(--warn)'
-        : state.rateLevel === 3 ? 'var(--bad)' : 'var(--accent)';
       els.rateArc.style.stroke = rateColor;
     }
-    if (els.rateNeedle) {
-      const angle = -90 + fraction * 180;
-      els.rateNeedle.setAttribute('transform', 'rotate(' + angle.toFixed(2) + ' 120 116)');
+    if (els.rateMarker) {
+      const theta = Math.PI * (1 - fraction);
+      const mx = (130 + 96 * Math.cos(theta)) / 260 * 100;
+      const my = (120 - 96 * Math.sin(theta)) / 150 * 100;
+      els.rateMarker.style.left = mx.toFixed(2) + '%';
+      els.rateMarker.style.top = my.toFixed(2) + '%';
+      els.rateMarker.style.opacity = bpm > 0 ? '1' : '0';
+      els.rateMarker.style.background = rateColor;
     }
     setText(els.rateValue, bpm > 0 ? String(Math.round(bpm)) : '—');
 
@@ -1559,16 +1564,24 @@
       els.scoreRing.style.stroke = ring;
     }
 
+    const longestPause = Number(sum.lp) || 0;
     const facts = [
       ['CCF', (Number(sum.ccf) || 0) + '%'],
       ['อัตราเฉลี่ย', (Number(sum.bpm) || 0) + ' ครั้ง/นาที'],
       ['ความลึกเฉลี่ย', depthText(toDisplay(sum.pk)) + ' ' + info.unit],
       ['จำนวนครั้ง', n + ' ครั้ง'],
       ['ระยะเวลา', fmtDuration(sum.dur)],
-      ['หยุดนานสุด', ((Number(sum.lp) || 0) / 1000).toFixed(1) + ' วิ'],
-      ['รอบ 30:2', (Number(sum.cy) || 0) + ' รอบ'],
+      ['หยุดนานสุด', longestPause > 0
+        ? (longestPause / 1000).toFixed(1) + ' วิ' : 'ไม่มีช่วงหยุด'],
       ['ครั้งที่ถูกทั้งหมด', (Number(sum.ok) || 0) + ' ครั้ง']
     ];
+    if (Number(sum.mode) === 1) {
+      facts.push(['รอบ 30:2', (Number(sum.cy) || 0) + ' รอบ']);
+    } else if (Number(sum.mode) === 2) {
+      facts.push(['ทดสอบ 2 นาที', fmtDuration(sum.dur)]);
+    } else {
+      facts.push(['ช่วงเป้าหมาย', tickNum(info.good) + '–' + tickNum(info.deep) + ' ' + info.unit]);
+    }
     let factsHtml = '';
     facts.forEach((fact) => {
       factsHtml += '<div class="fact"><span>' + esc(fact[0]) + '</span><strong>' +

@@ -8,6 +8,10 @@
 
 namespace cpr {
 
+// Longest line any writer may produce. The worst-case sum message is about
+// 260 bytes; 280 leaves room for larger values. See docs/OPEN_ISSUES.md.
+static const size_t kMaxJsonLine = 280;
+
 size_t jsonFrame(char* buf, size_t cap, const LiveState& s);
 size_t jsonEvent(char* buf, size_t cap, const Event& e);
 size_t jsonSummary(char* buf, size_t cap, const SessionStats& s, Mode m, Profile p);

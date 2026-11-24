@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "web_assets.h"
+#include "cpr_json.h"
 
 #ifndef CPR_CAPTIVE_DNS
 #define CPR_CAPTIVE_DNS 1
@@ -19,7 +20,7 @@ constexpr uint16_t kHttpPort = 80;
 constexpr uint8_t kApChannel = 6;
 constexpr uint8_t kMaxStations = 4;
 constexpr uint16_t kMaxWsClients = 4;
-constexpr size_t kOutLineLen = 208;
+constexpr size_t kOutLineLen = cpr::kMaxJsonLine + 8;
 constexpr size_t kCmdLineLen = 64;
 constexpr const char* kDefaultWifiPass = "cprtrain123";
 
