@@ -6,7 +6,7 @@ Run with the tools virtualenv:
     /home/box/.tools-venv/bin/python tools/screenshots.py
 
 Serves web/ with ``python3 -m http.server`` on a free port, then captures the
-desktop (1280x800) and phone (390x844) views.
+desktop (1280x800), phone (390x844) and landscape (844x390) views.
 """
 
 import os
@@ -121,6 +121,10 @@ def main():
                     viewport={"width": 390, "height": 844},
                     device_scale_factor=2,
                 )
+                landscape = browser.new_context(
+                    viewport={"width": 844, "height": 390},
+                    device_scale_factor=1,
+                )
                 for label, context in (("1280", desktop), ("390", phone)):
                     scroll = "#countTile" if label == "390" else None
                     capture(context, base, "01-practice-%s.png" % label,
@@ -145,6 +149,18 @@ def main():
                             "?sheet=connect&motion=freeze",
                             wait_selector="#sheetConnect:not([hidden])",
                             wait_ms=450)
+                    capture(context, base, "08-settings-%s.png" % label,
+                            "?demo=good&seek=5&sheet=settings&motion=freeze",
+                            wait_selector="#sheetSettings:not([hidden])",
+                            wait_ms=650)
+
+                capture(phone, base, "09-info-390.png",
+                        "?demo=good&seek=14&sheet=info&info=score&motion=freeze",
+                        wait_selector="#sheetInfo:not([hidden])",
+                        wait_ms=650)
+
+                capture(landscape, base, "10-landscape-844.png",
+                        "?demo=good&seek=14&motion=freeze", wait_ms=700)
 
                 capture(desktop, base, "06-light-1280.png",
                         "?demo=good&seek=14&theme=light&motion=freeze", wait_ms=700)

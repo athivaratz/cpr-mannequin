@@ -1246,14 +1246,16 @@ p {
 /* Banners and toasts */
 
 .notice-stack {
-  position: absolute;
-  top: 8px;
-  right: 16px;
-  left: 16px;
+  position: fixed;
+  top: calc(56px + 8px + env(safe-area-inset-top));
+  left: 50%;
+  right: auto;
   z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: min(420px, 100% - 32px);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -1265,7 +1267,8 @@ p {
   padding: 8px 12px 8px 8px;
   border-radius: var(--r-md);
   color: var(--warn);
-  background: var(--warn-tint);
+  background: linear-gradient(var(--warn-tint), var(--warn-tint)), var(--surface-2);
+  box-shadow: var(--shadow-2);
   font-size: var(--t-small);
   font-weight: 600;
   line-height: 1.5;
@@ -1297,12 +1300,12 @@ p {
 
 .notice-breath {
   color: var(--accent);
-  background: var(--accent-tint);
+  background: linear-gradient(var(--accent-tint), var(--accent-tint)), var(--surface-2);
 }
 
 .notice-bad {
   color: var(--bad);
-  background: var(--bad-tint);
+  background: linear-gradient(var(--bad-tint), var(--bad-tint)), var(--surface-2);
 }
 
 .notice .info-btn {
@@ -1312,7 +1315,7 @@ p {
 
 .notice.is-long {
   color: var(--bad);
-  background: var(--bad-tint);
+  background: linear-gradient(var(--bad-tint), var(--bad-tint)), var(--surface-2);
 }
 
 .toast {
@@ -2753,10 +2756,14 @@ button.list-card:active {
   }
 
   .notice-stack {
-    top: 4px;
-    right: 12px;
-    left: auto;
-    width: calc(50% - 18px);
+    top: 12px;
+    right: auto;
+    left: calc(50% + 32px);
+    width: min(420px, 100% - 32px);
+  }
+
+  .notice {
+    padding-block: 4px;
   }
 
   /* Sheets */
@@ -3144,10 +3151,10 @@ button.list-card:active {
   }
 
   .notice-stack {
-    top: 16px;
-    right: 32px;
-    left: auto;
-    width: min(620px, 56%);
+    top: 12px;
+    right: auto;
+    left: calc(50% + 40px);
+    width: min(420px, 100% - 32px);
   }
 
   .sheet-layer {
@@ -3198,10 +3205,6 @@ button.list-card:active {
 @media (min-width: 1600px) {
   .screen-grid {
     max-width: 1360px;
-  }
-
-  .notice-stack {
-    width: min(680px, 56%);
   }
 }
 

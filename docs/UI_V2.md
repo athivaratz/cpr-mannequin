@@ -256,9 +256,15 @@ Full-width rounded (`--r-md`) banners, icon in a 32px circle + one short line:
 - breaths (30:2 awaiting): --accent-tint, wind, **ให้ลม 2 ครั้ง**.
 - low SPS: --warn-tint, triangle-alert, **เซนเซอร์อ่านช้า** + (i) (key `sps`).
 - overload: --bad-tint, zap, **กดแรงเกิน**.
-Banners never shift the hero or the tiles. They live in an absolutely
-positioned toast stack at the top of main (phone: just under the app bar;
-desktop: top of the right column), stacked with 8px gaps, and animate per §7.
+Banners never shift the hero or the tiles. They are toasts: a
+`position: fixed` stack, horizontally centered over the main area (not over
+the rail), `width: min(420px, 100% - 32px)`, stacked with 8px gaps, and
+animate per §7. Phone/tablet: top = app bar height + 8px, so they stay visible
+while the page is scrolled. Desktop and phone-landscape: top 12px, centered in
+the app bar strip, so they cover only the empty middle of the app bar, never
+the mode switch or the CTA. Each toast is opaque: its tint is layered over
+--surface-2 (`background: linear-gradient(tint, tint), var(--surface-2)`) with
+--shadow-2, so nothing behind it shows through.
 
 ### 6.7 Sheets
 One sheet system. Phone/tablet: bottom sheet, `--r-lg` top corners, grab

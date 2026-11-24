@@ -50,8 +50,8 @@
 3. เปิดเบราว์เซอร์ไปที่ <http://192.168.4.1>
    หน้าเว็บจะเชื่อมต่อให้เองเมื่อเปิดจากที่อยู่นี้
 
-ค่าเริ่มต้นของโปรไฟล์คือ **เด็ก** เลือก **ผู้ใหญ่** ได้ที่แถบล่างหรือในหน้าตั้งค่า
-โหมดเริ่มต้นคือ **ฝึกอิสระ**
+ค่าเริ่มต้นของโปรไฟล์คือ **เด็ก** เลือก **ผู้ใหญ่** ได้ที่แถว **โปรไฟล์** ในหน้าตั้งค่า
+โหมดเริ่มต้นคือ **อิสระ**
 
 ## เริ่มใช้ Nano กับ Web Serial
 
@@ -77,28 +77,31 @@ Nano ไม่มี Wi-Fi จึงใช้หน้าเว็บที่�
 
    แล้วเปิด <http://localhost:8080/> ใน Chrome หรือ Edge บนเดสก์ท็อป
 
-3. ในหน้าเชื่อมต่อ เลือก **สาย USB (Web Serial)** แล้วเลือกพอร์ตของ Nano
+3. ในหน้าเชื่อมต่อ เลือก **สาย USB** แล้วเลือกพอร์ตของ Nano
    ความเร็ว Serial คือ **115200** (สเก็ตช์เก่าใช้ 9600 ซึ่งช้าเกินไปสำหรับข้อมูล 20 Hz)
 
 Nano ที่ build ตามปกติยังไม่มีความจำพอสำหรับ VL53L0X จึงใช้โหมดวัดด้วยแรง
 และตั้งช่วง กก. แทน (ดู [`docs/OPEN_ISSUES.md`](docs/OPEN_ISSUES.md))
 
-## โหมดเดโม
+## เดโม
 
-ไม่ต้องต่อหุ่นก็ดูหน้าเว็บได้ ในหน้าเชื่อมต่อเลือก **โหมดเดโม**
+ไม่ต้องต่อหุ่นก็ดูหน้าเว็บได้ ในหน้าเชื่อมต่อใช้การ์ด **เดโม**
 แล้วเลือกข้อมูลตัวอย่าง `กดถูกต้อง`, `กดตื้นไป`, `รอบ 30:2` หรือ `ทดสอบ 2 นาที`
 ข้อมูลจะเล่นซ้ำอัตโนมัติ
 
 ตอนพัฒนาเว็บมี URL ช่วยดูหน้าจอ
 
 ```
-?demo=good          เลือกชุดข้อมูล
-&speed=4            เร่งความเร็ว
-&seek=30            กระโดดไปวินาทีที่ 30
-&theme=light        ธีมสว่าง
-&sheet=summary      เปิดหน้าสรุป
-&sheet=calib        เปิดหน้าปรับเทียบ
-&sheet=connect      เปิดหน้าเชื่อมต่อ
+?demo=good              เลือกชุดข้อมูล
+&speed=4                เร่งความเร็ว
+&seek=30                กระโดดไปวินาทีที่ 30
+&theme=light            ธีมสว่าง
+&sheet=summary          เปิดหน้าสรุป
+&sheet=calib            เปิดหน้าปรับเทียบ
+&sheet=settings         เปิดหน้าตั้งค่า
+&sheet=connect          เปิดหน้าเชื่อมต่อ
+&sheet=info&info=score เปิดแผ่นข้อมูลหัวข้อคะแนน
+&motion=freeze          ปิดแอนิเมชัน
 ```
 
 ถ้าเปิดผ่าน `tools/devserver.py` ใช้ `?ws=1` เพื่อรับข้อมูลจาก dev server
@@ -164,15 +167,18 @@ python3 tools/devserver.py --port 8080 --recording recordings/good.jsonl --loop
 
 ## ภาพหน้าจอ
 
-ภาพต่อไปนี้มาจากโหมดเดโม ภาพเดสก์ท็อปขนาด 1280×800 และภาพมือถือขนาด 390×844
+ภาพต่อไปนี้มาจากเดโม ขนาด 1280×800, 390×844 และแนวนอน 844×390
 
-| หน้าจอ | เดสก์ท็อป | มือถือ |
-|---|---|---|
-| ฝึกอิสระ | ![ฝึกอิสระ](docs/screenshots/01-practice-1280.png) | ![ฝึกอิสระ มือถือ](docs/screenshots/01-practice-390.png) |
-| รอบ 30:2 | ![รอบ 30:2](docs/screenshots/02-cycle-1280.png) | ![รอบ 30:2 มือถือ](docs/screenshots/02-cycle-390.png) |
-| ครบ 30 ครั้ง รอหายใจ | ![รอหายใจ](docs/screenshots/02b-breaths-1280.png) | ![รอหายใจ มือถือ](docs/screenshots/02b-breaths-390.png) |
-| สรุปผล | ![สรุปผล](docs/screenshots/03-summary-1280.png) | ![สรุปผล มือถือ](docs/screenshots/03-summary-390.png) |
-| ปรับเทียบ | ![ปรับเทียบ](docs/screenshots/04-calib-1280.png) | ![ปรับเทียบ มือถือ](docs/screenshots/04-calib-390.png) |
-| กดตื้นไป | ![กดตื้นไป](docs/screenshots/05-shallow-1280.png) | ![กดตื้นไป มือถือ](docs/screenshots/05-shallow-390.png) |
-| ธีมสว่าง | ![ธีมสว่าง](docs/screenshots/06-light-1280.png) | |
-| เชื่อมต่อ | ![เชื่อมต่อ](docs/screenshots/07-connect-1280.png) | ![เชื่อมต่อ มือถือ](docs/screenshots/07-connect-390.png) |
+| หน้าจอ | 1280×800 | 390×844 | 844×390 |
+|---|---|---|---|
+| หน้าฝึก (อิสระ) | ![ฝึกอิสระ](docs/screenshots/01-practice-1280.png) | ![ฝึกอิสระ มือถือ](docs/screenshots/01-practice-390.png) | |
+| รอบ 30:2 | ![รอบ 30:2](docs/screenshots/02-cycle-1280.png) | ![รอบ 30:2 มือถือ](docs/screenshots/02-cycle-390.png) | |
+| รอให้ลม 2 ครั้ง | ![รอให้ลม](docs/screenshots/02b-breaths-1280.png) | ![รอให้ลม มือถือ](docs/screenshots/02b-breaths-390.png) | |
+| สรุปผล | ![สรุปผล](docs/screenshots/03-summary-1280.png) | ![สรุปผล มือถือ](docs/screenshots/03-summary-390.png) | |
+| ปรับเทียบ | ![ปรับเทียบ](docs/screenshots/04-calib-1280.png) | ![ปรับเทียบ มือถือ](docs/screenshots/04-calib-390.png) | |
+| กดตื้นไป | ![กดตื้นไป](docs/screenshots/05-shallow-1280.png) | ![กดตื้นไป มือถือ](docs/screenshots/05-shallow-390.png) | |
+| ธีมสว่าง | ![ธีมสว่าง](docs/screenshots/06-light-1280.png) | | |
+| เชื่อมต่อ | ![เชื่อมต่อ](docs/screenshots/07-connect-1280.png) | ![เชื่อมต่อ มือถือ](docs/screenshots/07-connect-390.png) | |
+| ตั้งค่า | ![ตั้งค่า](docs/screenshots/08-settings-1280.png) | ![ตั้งค่า มือถือ](docs/screenshots/08-settings-390.png) | |
+| แผ่นข้อมูลคะแนน | | ![แผ่นข้อมูลคะแนน](docs/screenshots/09-info-390.png) | |
+| หน้าฝึกแนวนอน | | | ![หน้าฝึกแนวนอน](docs/screenshots/10-landscape-844.png) |
