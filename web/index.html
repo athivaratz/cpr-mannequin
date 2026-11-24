@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0B1220">
+  <meta name="theme-color" content="#0E0F13">
   <title>หุ่นฝึก CPR · แผงฝึกการกดหน้าอก</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234F8CFF'/%3E%3Cpath d='M12 19s-6-4.2-6-8.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 6 2.6C18 14.8 12 19 12 19Z' fill='white'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='7' fill='%238B7CFF'/%3E%3Cpath d='M12 19s-6-4.2-6-8.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 6 2.6C18 14.8 12 19 12 19Z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="app.css">
   <script>
     (function () {
@@ -21,555 +21,650 @@
   </script>
 </head>
 <body>
-  <svg class="sprite" aria-hidden="true" focusable="false">
-    <symbol id="i-logo" viewBox="0 0 24 24">
-      <path d="M20.8 5.6a5.4 5.4 0 0 0-7.7 0L12 6.7l-1.1-1.1a5.4 5.4 0 0 0-7.7 7.7L12 22l8.8-8.7a5.4 5.4 0 0 0 0-7.7Z"/>
-      <path d="M3.5 12h4l1.6-3.2 2.4 6.4 1.8-4.1 1.2 2.3h5"/>
+  <svg id="icon-sprite" hidden aria-hidden="true" focusable="false">
+    <!-- icons:begin -->
+    <symbol id="i-heart-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />
+      <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" />
     </symbol>
-    <symbol id="i-gear" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3.2"/>
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 4.18 16.9l.06-.06A1.7 1.7 0 0 0 4.58 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.64 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.07 4.14l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/>
+    <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" />
+      <path d="m14.5 12.5 2-2" />
+      <path d="m11.5 9.5 2-2" />
+      <path d="m8.5 6.5 2-2" />
+      <path d="m17.5 15.5 2-2" />
     </symbol>
-    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8L19 12 8 5.6Z"/></symbol>
-    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.4"/></symbol>
-    <symbol id="i-music" viewBox="0 0 24 24">
-      <path d="M9 18V6.3l10-2V16"/>
-      <circle cx="6.2" cy="18" r="2.8"/><circle cx="16.2" cy="16" r="2.8"/>
+    <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
     </symbol>
-    <symbol id="i-download" viewBox="0 0 24 24">
-      <path d="M12 3.5v11.5"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20.5h14"/>
+    <symbol id="i-arrow-up-from-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m18 9-6-6-6 6" />
+      <path d="M12 3v14" />
+      <path d="M5 21h14" />
     </symbol>
-    <symbol id="i-restart" viewBox="0 0 24 24">
-      <path d="M20 11a8 8 0 1 0-2.35 6.35"/><path d="M20 4.5V11h-6.5"/>
+    <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
     </symbol>
-    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
-    <symbol id="i-wifi" viewBox="0 0 24 24">
-      <path d="M3.6 9.4a13 13 0 0 1 16.8 0"/><path d="M7.1 13a8.4 8.4 0 0 1 9.8 0"/>
-      <path d="M10.2 16.5a4 4 0 0 1 3.6 0"/><circle class="dot" cx="12" cy="19.4" r="1"/>
+    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
     </symbol>
-    <symbol id="i-usb" viewBox="0 0 24 24">
-      <path d="M9 7V4.2h6V7"/><rect x="7" y="7" width="10" height="5.2" rx="1.6"/>
-      <path d="M12 12.2v5.1a3.2 3.2 0 0 0 3.2 3.2"/><path d="M12 20.5h3.2"/>
+    <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="10" x2="14" y1="2" y2="2" />
+      <line x1="12" x2="15" y1="14" y2="11" />
+      <circle cx="12" cy="14" r="8" />
     </symbol>
-    <symbol id="i-demo" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="8.6"/><path d="M10.2 8.4v7.2l5.7-3.6-5.7-3.6Z"/>
+    <symbol id="i-wind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12.8 19.6A2 2 0 1 0 14 16H2" />
+      <path d="M17.5 8a2.5 2.5 0 1 1 2 4H2" />
+      <path d="M9.8 4.4A2 2 0 1 1 11 8H2" />
     </symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
-    <symbol id="i-alert" viewBox="0 0 24 24">
-      <path d="M12 3.6 21.6 20H2.4L12 3.6Z"/><path d="M12 9.2v5"/>
-      <circle class="dot" cx="12" cy="17.1" r="1"/>
+    <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" />
+      <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" />
+      <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" />
+      <path d="M4 22h16" />
+      <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
+      <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" />
     </symbol>
-    <symbol id="i-hand" viewBox="0 0 24 24">
-      <path d="M8.2 12.6V6.4a1.5 1.5 0 0 1 3 0V12"/>
-      <path d="M11.2 11V5.4a1.5 1.5 0 0 1 3 0V12"/>
-      <path d="M14.2 11V7a1.5 1.5 0 0 1 3 0v6.8"/>
-      <path d="M17.2 10.4a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-2.1a6 6 0 0 1-4.6-2.2l-3.1-3.9a1.6 1.6 0 0 1 2.4-2.1l1.8 2"/>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+      <circle cx="12" cy="12" r="3" />
     </symbol>
-    <symbol id="i-recoil" viewBox="0 0 24 24">
-      <path d="M12 19.5V6"/><path d="m6.3 11.7 5.7-5.7 5.7 5.7"/><path d="M5 21h14"/>
+    <symbol id="i-wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h.01" />
+      <path d="M2 8.82a15 15 0 0 1 20 0" />
+      <path d="M5 12.859a10 10 0 0 1 14 0" />
+      <path d="M8.5 16.429a5 5 0 0 1 7 0" />
     </symbol>
-    <symbol id="i-target" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4"/>
-      <circle class="dot" cx="12" cy="12" r="1.1"/>
+    <symbol id="i-usb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10" cy="7" r="1" />
+      <circle cx="4" cy="20" r="1" />
+      <path d="M4.7 19.3 19 5" />
+      <path d="m21 3-3 1 2 2Z" />
+      <path d="M9.26 7.68 5 12l2 5" />
+      <path d="m10 14 5 2 3.5-3.5" />
+      <path d="m18 12 1-1 1 1-1 1Z" />
     </symbol>
-    <symbol id="i-gauge" viewBox="0 0 24 24">
-      <path d="M3.8 17.5a8.2 8.2 0 1 1 16.4 0"/><path d="m12 13.4 3.8-2.9"/>
-      <circle class="dot" cx="12" cy="13.6" r="1.3"/>
+    <symbol id="i-monitor-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15.033 9.44a.647.647 0 0 1 0 1.12l-4.065 2.352a.645.645 0 0 1-.968-.56V7.648a.645.645 0 0 1 .967-.56z" />
+      <path d="M12 17v4" />
+      <path d="M8 21h8" />
+      <rect x="2" y="3" width="20" height="14" rx="2" />
     </symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="8.4"/><path d="M12 7.2v5.2l3.1 1.9"/>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
     </symbol>
-    <symbol id="i-calendar" viewBox="0 0 24 24">
-      <rect x="3.6" y="5.2" width="16.8" height="15" rx="2.4"/>
-      <path d="M8 3.2v4M16 3.2v4M3.6 10h16.8"/>
+    <symbol id="i-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2" />
     </symbol>
-    <symbol id="i-heartbeat" viewBox="0 0 24 24">
-      <path d="M3 12h4l2-4 3 8 2.4-5 1.6 3H21"/>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 16V3a1 1 0 0 0-1.28-.96l-10 2.917a1 1 0 0 0-.72.96V19" />
+      <circle cx="18" cy="16" r="3" />
+      <circle cx="6" cy="19" r="3" />
     </symbol>
-    <symbol id="i-layers" viewBox="0 0 24 24">
-      <path d="m12 3.6 8.4 4.2L12 12 3.6 7.8 12 3.6Z"/><path d="m3.6 12 8.4 4.2 8.4-4.2"/>
-      <path d="m3.6 16.2 8.4 4.2 8.4-4.2"/>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
     </symbol>
-    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
-    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
-    <symbol id="i-table" viewBox="0 0 24 24">
-      <rect x="3.8" y="4.5" width="16.4" height="15" rx="2.2"/>
-      <path d="M3.8 9.3h16.4M3.8 14.2h16.4M9.5 4.5v15M15 4.5v15"/>
+    <symbol id="i-circle-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9 9.5a3 2.5 0 016 0c0 2-2 2-3 3.5" />
+      <path d="M12 17h.01" />
     </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </symbol>
+    <symbol id="i-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="m16 9-5.5 5.5L8 12" />
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </symbol>
+    <symbol id="i-triangle-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3" />
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5" />
+    </symbol>
+    <symbol id="i-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />
+    </symbol>
+    <symbol id="i-baby" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5" />
+      <path d="M15 12h.01" />
+      <path d="M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1" />
+      <path d="M9 12h.01" />
+    </symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </symbol>
+    <symbol id="i-sliders-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 5H3" />
+      <path d="M12 19H3" />
+      <path d="M14 3v4" />
+      <path d="M16 17v4" />
+      <path d="M21 12h-9" />
+      <path d="M21 19h-5" />
+      <path d="M21 5h-7" />
+      <path d="M8 10v4" />
+      <path d="M8 12H3" />
+    </symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v18" />
+      <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" />
+      <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" />
+      <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" />
+      <path d="M7 21h10" />
+    </symbol>
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m9 18 6-6-6-6" />
+    </symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m15 18-6-6 6-6" />
+    </symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6" />
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </symbol>
+    <symbol id="i-bar-chart-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+      <path d="M18 17V9" />
+      <path d="M13 17V5" />
+      <path d="M8 17v-3" />
+    </symbol>
+    <!-- icons:end -->
   </svg>
 
   <div class="app">
-    <header class="topbar">
+    <nav class="nav" id="appNav" aria-label="เมนูหลัก">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <button type="button" class="nav-btn is-active" data-nav="live" aria-current="page">
+        <span class="nav-ico"><svg class="ic" aria-hidden="true"><use href="#i-heart-pulse"></use></svg></span>
+        <span class="nav-label">ฝึก</span>
+      </button>
+      <button type="button" class="nav-btn" data-nav="summary">
+        <span class="nav-ico"><svg class="ic" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+        <span class="nav-label">ผล</span>
+      </button>
+      <button type="button" class="nav-btn" data-nav="settings">
+        <span class="nav-ico"><svg class="ic" aria-hidden="true"><use href="#i-settings"></use></svg></span>
+        <span class="nav-label">ตั้งค่า</span>
+      </button>
+    </nav>
+
+    <header class="appbar">
       <div class="brand">
-        <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-logo"></use></svg></span>
-        <div class="brand-copy">
-          <h1>หุ่นฝึก CPR</h1>
-          <p>แผงฝึกรีดหน้าอก</p>
-        </div>
+        <span class="brand-mark"><svg class="ic" aria-hidden="true"><use href="#i-heart-pulse"></use></svg></span>
+        <h1 class="brand-title">หุ่นฝึก CPR</h1>
       </div>
-
-      <div class="mode-switch" role="group" aria-label="เลือกโหมดการฝึก">
-        <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">ฝึกอิสระ</button>
-        <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">รอบ 30:2</button>
-        <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">ทดสอบ 2 นาที</button>
-      </div>
-
-      <div class="top-actions">
+      <div class="appbar-actions">
         <button type="button" class="conn-pill" id="connPill" data-state="off" aria-label="สถานะการเชื่อมต่อ">
           <span class="conn-dot" aria-hidden="true"></span>
-          <span id="connText">ไม่ได้เชื่อมต่อ</span>
+          <span id="connText">ไม่ได้ต่อ</span>
         </button>
-        <button type="button" class="icon-btn" id="settingsBtn" aria-label="เปิดการตั้งค่า">
-          <svg class="icon" aria-hidden="true"><use href="#i-gear"></use></svg>
+        <button type="button" class="round-btn metro-btn" id="metroBtn" aria-pressed="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
+          <svg class="ic" aria-hidden="true"><use href="#i-music"></use></svg>
         </button>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="card hero" aria-labelledby="heroTitle">
-        <div class="card-head hero-head">
-          <div>
-            <p class="eyebrow">ความลึกการกด</p>
-            <h2 id="heroTitle">ระยะกดหน้าอก</h2>
-          </div>
-          <span class="chip chip-idle" id="depthChip">พร้อม</span>
+    <main class="screen" id="screenLive">
+      <div class="notice-stack" id="noticeStack" aria-live="polite">
+        <div class="notice notice-pause" id="pauseBanner" hidden>
+          <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg></span>
+          <span id="pauseText">หยุดกด 4 วิ</span>
+        </div>
+        <div class="notice notice-breath" id="breathBanner" hidden>
+          <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-wind"></use></svg></span>
+          <span>ให้ลม 2 ครั้ง</span>
+        </div>
+        <div class="notice notice-warn" id="warnSps" hidden>
+          <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"></use></svg></span>
+          <span>เซนเซอร์อ่านช้า</span>
+          <button type="button" class="info-btn tiny" data-info="sps" aria-label="ข้อมูลเซนเซอร์">
+            <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+          </button>
+        </div>
+        <div class="notice notice-bad" id="warnOverload" hidden>
+          <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-zap"></use></svg></span>
+          <span>กดแรงเกิน</span>
+        </div>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </div>
+
+      <div class="screen-grid">
+        <div class="mode" id="modeSwitch" role="group" aria-label="เลือกโหมดการฝึก">
+          <span class="mode-pill" aria-hidden="true"></span>
+          <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">อิสระ</button>
+          <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">30:2</button>
+          <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">2 นาที</button>
         </div>
 
-        <div class="hero-body">
-          <div class="hero-readout">
-            <div class="hero-value">
-              <span id="depthValue">0.0</span>
-              <span class="hero-unit" id="depthUnit">ซม.</span>
+        <div class="main-left">
+          <section class="hero card" id="heroCard" data-state="idle" aria-labelledby="heroTitle">
+            <div class="hero-glow" aria-hidden="true">
+              <span class="glow glow-ok"></span>
+              <span class="glow glow-warn"></span>
+              <span class="glow glow-bad"></span>
+              <span class="glow glow-accent"></span>
             </div>
-            <p class="hero-hint" id="depthHint">เริ่มกดเพื่อวัดความลึก</p>
-            <div class="hero-meta">
-              <div class="meta">
-                <span class="meta-label">ช่วงเป้าหมาย</span>
-                <span class="meta-value" id="targetText">5–6 ซม.</span>
+            <div class="hero-top">
+              <div class="label-row">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-ruler"></use></svg></span>
+                <h2 id="heroTitle" class="card-label">ความลึก</h2>
               </div>
-              <div class="meta">
-                <span class="meta-label">ยอดล่าสุด</span>
-                <span class="meta-value" id="lastPeakText">—</span>
-              </div>
+              <button type="button" class="info-btn" data-info="depth" aria-label="ข้อมูลความลึก">
+                <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+              </button>
             </div>
-          </div>
-
-          <div class="gauge" id="gauge" aria-hidden="true">
-            <div class="gauge-track">
-              <div class="gauge-band" id="gaugeBand"></div>
-              <div class="gauge-fill" id="gaugeFill"></div>
-              <div class="gauge-peak" id="gaugePeak"></div>
-            </div>
-            <div class="gauge-axis" id="gaugeAxis"></div>
-          </div>
-        </div>
-      </section>
-
-      <div class="stats-grid">
-        <section class="card stat-card rate-card" aria-labelledby="rateTitle">
-          <div class="card-head compact">
-            <div>
-              <p class="eyebrow">จังหวะ</p>
-              <h2 id="rateTitle">อัตราการกด</h2>
-            </div>
-            <span class="chip chip-idle" id="rateChip">รอจังหวะ</span>
-          </div>
-          <div class="rate-meter">
-            <svg class="rate-svg" viewBox="0 0 260 150" preserveAspectRatio="none" aria-hidden="true">
-              <path class="arc-track" d="M34 120 A96 96 0 0 1 226 120" pathLength="100"/>
-              <path class="arc-band" d="M34 120 A96 96 0 0 1 226 120" pathLength="100"/>
-              <path class="arc-fill" id="rateArc" d="M34 120 A96 96 0 0 1 226 120" pathLength="100"/>
-            </svg>
-            <div class="rate-ticks" aria-hidden="true">
-              <span class="tick-start">60</span>
-              <span class="tick-100">100</span>
-              <span class="tick-120">120</span>
-              <span class="tick-end">160</span>
-            </div>
-            <div class="rate-marker" id="rateMarker" aria-hidden="true"></div>
-            <div class="rate-readout">
-              <span class="rate-value" id="rateValue">—</span>
-              <span class="rate-unit">ครั้ง/นาที</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="card stat-card recoil-card" aria-labelledby="recoilTitle">
-          <div class="card-head compact">
-            <div>
-              <p class="eyebrow">การคืนตัว</p>
-              <h2 id="recoilTitle">การปล่อยมือ</h2>
-            </div>
-          </div>
-          <div class="stat-status">
-            <span class="status-icon is-idle" id="recoilIcon">
-              <svg class="icon" aria-hidden="true"><use href="#i-recoil"></use></svg>
-            </span>
-            <div class="stat-copy">
-              <p class="stat-title" id="recoilText">ยังไม่มีข้อมูล</p>
-              <p class="stat-sub">ปล่อยให้หน้าอกกลับขึ้นสุดทุกครั้ง</p>
-            </div>
-          </div>
-          <div class="dots-block">
-            <p class="dot-caption">10 ครั้งล่าสุด</p>
-            <div class="dot-row" id="recoilDots" aria-label="ผลการคืนตัว 10 ครั้งล่าสุด"></div>
-          </div>
-        </section>
-
-        <section class="card stat-card hand-card" aria-labelledby="handTitle">
-          <div class="card-head compact">
-            <div>
-              <p class="eyebrow">ตำแหน่งมือ</p>
-              <h2 id="handTitle">จุดวางมือ</h2>
-            </div>
-          </div>
-          <div class="stat-status">
-            <span class="status-icon is-idle" id="handIcon">
-              <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg>
-            </span>
-            <div class="stat-copy">
-              <p class="stat-title" id="handText">ยังไม่ตรวจ</p>
-            </div>
-          </div>
-          <div class="hand-diagram" aria-hidden="true">
-            <svg viewBox="0 0 120 64">
-              <rect class="torso" x="14" y="6" width="92" height="52" rx="20"/>
-              <path class="sternum" d="M60 14v26"/>
-              <circle class="hand-target" id="handTarget" cx="60" cy="44" r="10"/>
-            </svg>
-          </div>
-        </section>
-
-        <section class="card stat-card counter-card" id="counterCard" aria-labelledby="counterTitle">
-          <div class="card-head compact">
-            <div>
-              <p class="eyebrow">จำนวน</p>
-              <h2 id="counterTitle">การนับ</h2>
-            </div>
-            <span class="chip chip-idle" id="counterChip">พร้อม</span>
-          </div>
-
-          <div class="counter-body">
-            <div class="counter-free" data-counter="free">
-              <div class="counter-main">
-                <span class="counter-value" id="counterValue">0</span>
-                <span class="counter-unit">ครั้ง</span>
-              </div>
-              <p class="counter-sub">ในรอบนี้</p>
-              <div class="counter-facts">
-                <span class="counter-fact" id="freeElapsed">เวลา 0:00</span>
-                <span class="counter-fact" id="freeGood">ถูกทั้งหมด 0</span>
-              </div>
-            </div>
-
-            <div class="counter-cycle" data-counter="cycle" hidden>
-              <div class="ring-wrap">
-                <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
-                  <circle class="ring-track" cx="50" cy="50" r="41" pathLength="100"/>
-                  <circle class="ring-fill" id="counterRing" cx="50" cy="50" r="41" pathLength="100"/>
-                </svg>
-                <div class="ring-label"><span id="ringCount">0</span><small>/30</small></div>
-              </div>
-              <div class="counter-cycle-copy">
-                <p class="counter-sub" id="cycleText">รอบที่ 1</p>
-                <p class="counter-mini" id="cycleTotal">ทั้งหมด 0 ครั้ง</p>
-                <div class="breath-banner" id="breathBanner" hidden>
-                  <svg class="icon" aria-hidden="true"><use href="#i-heartbeat"></use></svg>
-                  <span id="breathText">ให้ลมหายใจ 2 ครั้ง</span>
+            <div class="hero-body">
+              <div class="hero-mid">
+                <div class="hero-value">
+                  <span id="depthValue">0.0</span>
+                  <span class="hero-unit" id="depthUnit">ซม.</span>
                 </div>
+                <span class="pill" id="depthPill" data-tone="idle">
+                  <svg class="ic pill-ic" aria-hidden="true"><use id="depthPillIcon" href="#i-circle-check"></use></svg>
+                  <span id="depthPillText">พร้อม</span>
+                </span>
+                <p class="hero-hint" id="depthHint">เริ่มกดได้เลย</p>
+              </div>
+              <div class="ruler" id="ruler">
+                <svg class="ruler-svg" id="rulerSvg" aria-hidden="true"></svg>
+                <span class="ruler-caret" id="rulerCaret" aria-hidden="true">▲</span>
+                <span class="ruler-marker" id="rulerMarker" aria-hidden="true"></span>
               </div>
             </div>
+          </section>
 
-            <div class="counter-test" data-counter="test" hidden>
-              <div class="counter-main">
-                <span class="counter-value" id="testCountdown">2:00</span>
+          <button type="button" class="cta card" id="ctaBtn">
+            <span class="cta-copy">
+              <span class="cta-title" id="ctaTitle">เริ่มฝึก</span>
+              <span class="cta-sub" id="ctaSub">ไม่จับเวลา</span>
+            </span>
+            <span class="cta-icon"><svg class="ic" aria-hidden="true"><use id="ctaIconUse" href="#i-play"></use></svg></span>
+          </button>
+        </div>
+
+        <div class="main-right">
+          <div class="tiles" id="tiles">
+            <section class="tile card" id="rateTile" data-state="idle" aria-labelledby="rateLabel">
+              <div class="tile-head">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-activity"></use></svg></span>
+                <h3 class="tile-label" id="rateLabel">จังหวะ</h3>
+                <button type="button" class="info-btn small" data-info="rate" aria-label="ข้อมูลจังหวะ">
+                  <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+                </button>
               </div>
-              <p class="counter-sub" id="testCount">กดแล้ว 0 ครั้ง</p>
-            </div>
+              <div class="tile-value">
+                <span id="rateValue">—</span>
+                <span class="tile-unit">/นาที</span>
+              </div>
+              <div class="mini-track" id="rateTrack">
+                <span class="mini-band" id="rateBand"></span>
+                <span class="mini-dot" id="rateDot"></span>
+              </div>
+              <span class="pill small" id="ratePill" data-tone="idle">
+                <svg class="ic pill-ic" aria-hidden="true"><use id="ratePillIcon" href="#i-circle-check"></use></svg>
+                <span id="ratePillText">รอ</span>
+              </span>
+            </section>
+
+            <section class="tile card" id="recoilTile" data-state="idle" aria-labelledby="recoilLabel">
+              <div class="tile-head">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up-from-line"></use></svg></span>
+                <h3 class="tile-label" id="recoilLabel">คืนตัว</h3>
+                <button type="button" class="info-btn small" data-info="recoil" aria-label="ข้อมูลการคืนตัว">
+                  <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+                </button>
+              </div>
+              <div class="tile-value">
+                <span id="recoilValue">—</span>
+                <span class="tile-unit">ครั้ง</span>
+              </div>
+              <div class="recoil-dots" id="recoilDots" aria-label="ผลการคืนตัว 10 ครั้งล่าสุด"></div>
+              <span class="pill small" id="recoilPill" data-tone="idle">
+                <svg class="ic pill-ic" aria-hidden="true"><use id="recoilPillIcon" href="#i-circle-check"></use></svg>
+                <span id="recoilPillText">รอ</span>
+              </span>
+            </section>
+
+            <section class="tile card" id="handTile" data-state="idle" aria-labelledby="handLabel">
+              <div class="tile-head">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-hand"></use></svg></span>
+                <h3 class="tile-label" id="handLabel">มือ</h3>
+                <button type="button" class="info-btn small" data-info="hand" aria-label="ข้อมูลตำแหน่งมือ">
+                  <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+                </button>
+              </div>
+              <div class="hand-body">
+                <span class="tile-value hand-value" id="handValue">—</span>
+                <svg class="hand-target" viewBox="0 0 48 48" aria-hidden="true">
+                  <rect class="torso" x="9" y="5" width="30" height="38" rx="13"/>
+                  <path class="sternum" d="M24 11v14"/>
+                  <circle class="target-dot" id="handTarget" cx="24" cy="32" r="7"/>
+                </svg>
+              </div>
+            </section>
+
+            <section class="tile card" id="countTile" data-state="idle" aria-labelledby="countLabel">
+              <div class="tile-head">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use id="countIconUse" href="#i-repeat"></use></svg></span>
+                <h3 class="tile-label" id="countLabel">จำนวน</h3>
+                <button type="button" class="info-btn small" data-info="count" aria-label="ข้อมูลการนับ">
+                  <svg class="ic" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+                </button>
+              </div>
+              <div class="count-free" data-count="free">
+                <div class="tile-value">
+                  <span id="countValue">0</span>
+                  <span class="tile-unit">ครั้ง</span>
+                </div>
+                <p class="tile-caption" id="countGood">ถูก 0</p>
+              </div>
+              <div class="count-ringed" data-count="cycle" hidden>
+                <div class="ring small">
+                  <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <circle class="ring-track" cx="50" cy="50" r="42" pathLength="100"/>
+                    <circle class="ring-fill" id="countRing" cx="50" cy="50" r="42" pathLength="100"/>
+                  </svg>
+                  <span class="ring-num"><span id="countRingNum">0</span><small>/30</small></span>
+                </div>
+                <p class="tile-caption" id="countCycle">รอบที่ 1</p>
+              </div>
+              <div class="count-ringed" data-count="test" hidden>
+                <div class="ring small">
+                  <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <circle class="ring-track" cx="50" cy="50" r="42" pathLength="100"/>
+                    <circle class="ring-fill" id="countTestRing" cx="50" cy="50" r="42" pathLength="100"/>
+                  </svg>
+                  <span class="ring-num" id="countTestNum">2:00</span>
+                </div>
+                <p class="tile-caption">เหลือ</p>
+              </div>
+            </section>
           </div>
 
-        </section>
-
-        <section class="card graph-card" aria-labelledby="graphTitle">
-          <div class="card-head compact graph-head">
-            <div>
-              <p class="eyebrow">แนวโน้ม</p>
-              <h2 id="graphTitle">ความลึก 10 วินาทีล่าสุด</h2>
+          <section class="card graph" aria-labelledby="graphTitle">
+            <div class="graph-head">
+              <div class="label-row">
+                <span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-bar-chart-3"></use></svg></span>
+                <h2 class="card-label" id="graphTitle">กราฟความลึก</h2>
+              </div>
+              <span class="pill small quiet">10 วิ</span>
             </div>
-            <div class="graph-legend"><span class="legend-band"></span>ช่วงเป้าหมาย</div>
-          </div>
-          <div class="graph-wrap">
-            <canvas id="depthGraph" role="img" aria-label="กราฟความลึกการกดย้อนหลัง 10 วินาที"></canvas>
-            <p class="graph-empty" id="graphEmpty">ยังไม่มีข้อมูล</p>
-          </div>
-        </section>
+            <div class="graph-wrap" id="graphWrap">
+              <canvas id="depthGraph" role="img" aria-label="กราฟความลึกการกดย้อนหลัง 10 วินาที"></canvas>
+              <p class="graph-empty" id="graphEmpty">ยังไม่มีข้อมูล</p>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
-
-    <footer class="bottom-bar">
-      <div class="bar-actions">
-        <button type="button" class="btn btn-primary" id="startBtn">
-          <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
-          <span>เริ่ม</span>
-        </button>
-        <button type="button" class="btn btn-ghost metro-btn" id="metroBtn" aria-pressed="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
-          <svg class="icon" aria-hidden="true"><use href="#i-music"></use></svg>
-          <span class="metro-text" id="metroLabel">จังหวะ 110</span>
-        </button>
-        <button type="button" class="btn btn-ghost" id="stopBtn">
-          <svg class="icon" aria-hidden="true"><use href="#i-stop"></use></svg>
-          <span>จบรอบ</span>
-        </button>
-      </div>
-
-      <div class="bar-meta">
-        <div class="segmented compact" role="group" aria-label="เลือกโปรไฟล์ผู้ฝึก">
-          <button type="button" class="seg-btn is-active" data-profile="child" aria-pressed="true">เด็ก</button>
-          <button type="button" class="seg-btn" data-profile="adult" aria-pressed="false">ผู้ใหญ่</button>
-        </div>
-        <div class="source-info">
-          <span class="source-dot" aria-hidden="true"></span>
-          <span id="sourceText">ยังไม่เชื่อมต่อ</span>
-        </div>
-      </div>
-    </footer>
   </div>
 
-  <div class="notices" id="notices" aria-live="polite">
-    <div class="notice notice-pause" id="pauseBanner" hidden>
-      <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
-      <span id="pauseText">หยุดกดแล้ว 4 วินาที</span>
-    </div>
-    <div class="notice notice-warn" id="warnSps" hidden>
-      <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
-      <span>เซนเซอร์อ่านได้แค่ 10 ครั้ง/วินาที ดูวิธีแก้ในคู่มือ</span>
-    </div>
-    <div class="notice notice-bad" id="warnOverload" hidden>
-      <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
-      <span>กดแรงเกิน ระวังเซนเซอร์เสีย</span>
-    </div>
-  </div>
-
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-
-  <div class="modal-layer" id="modalLayer" hidden>
-    <div class="scrim" data-close="1"></div>
+  <div class="sheet-layer" id="sheetLayer" hidden>
+    <div class="backdrop" id="backdrop" data-close="1"></div>
 
     <section class="sheet sheet-connect" id="sheetConnect" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="connectTitle" hidden>
       <header class="sheet-head">
         <div>
-          <p class="eyebrow">เริ่มต้น</p>
-          <h2 id="connectTitle">เชื่อมต่อหุ่นฝึก</h2>
-          <p class="sheet-sub">เลือกวิธีรับข้อมูลจากอุปกรณ์</p>
+          <h2 id="connectTitle">เชื่อมต่อ</h2>
         </div>
-        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดหน้าต่างเชื่อมต่อ">
-          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดหน้าต่างเชื่อมต่อ">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
       </header>
       <div class="sheet-body">
-        <div class="connect-list">
-          <button type="button" class="connect-card" id="connectWs">
-            <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-wifi"></use></svg></span>
-            <span class="connect-copy">
-              <strong>Wi-Fi (ESP32)</strong>
-              <small>เชื่อมต่อผ่าน Wi-Fi ของหุ่นที่ 192.168.4.1</small>
+        <div class="list">
+          <button type="button" class="list-card" id="connectWs">
+            <span class="list-ico"><svg class="ic" aria-hidden="true"><use href="#i-wifi"></use></svg></span>
+            <span class="list-copy">
+              <strong>Wi-Fi</strong>
+              <small>หุ่นที่ 192.168.4.1</small>
             </span>
-            <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+            <svg class="ic list-arrow" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button>
 
-          <button type="button" class="connect-card" id="connectSerial">
-            <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-usb"></use></svg></span>
-            <span class="connect-copy">
-              <strong>สาย USB (Web Serial)</strong>
-              <small id="serialHint">ต่อด้วยสาย USB ความเร็ว 115200</small>
+          <button type="button" class="list-card" id="connectSerial">
+            <span class="list-ico"><svg class="ic" aria-hidden="true"><use href="#i-usb"></use></svg></span>
+            <span class="list-copy">
+              <strong>สาย USB</strong>
+              <small id="serialHint">Chrome / Edge บนคอม</small>
             </span>
-            <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+            <svg class="ic list-arrow" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button>
 
-          <div class="connect-card connect-demo">
-            <button type="button" class="connect-main" id="connectDemo">
-              <span class="connect-icon"><svg class="icon" aria-hidden="true"><use href="#i-demo"></use></svg></span>
-              <span class="connect-copy">
-                <strong>โหมดเดโม</strong>
-                <small>เล่นข้อมูลบันทึกซ้ำ เพื่อดูหน้าจอโดยไม่ต้องต่อหุ่น</small>
+          <div class="list-card demo-card">
+            <button type="button" class="list-card-main" id="connectDemo">
+              <span class="list-ico"><svg class="ic" aria-hidden="true"><use href="#i-monitor-play"></use></svg></span>
+              <span class="list-copy">
+                <strong>เดโม</strong>
+                <small>ดูตัวอย่างโดยไม่ต่อหุ่น</small>
               </span>
-              <svg class="icon connect-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              <svg class="ic list-arrow" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
             </button>
             <div class="demo-picker">
-              <label for="demoSelect">ข้อมูลตัวอย่าง</label>
-              <select id="demoSelect">
+              <label for="demoSelect" class="demo-label">ข้อมูล</label>
+              <select id="demoSelect" aria-label="เลือกข้อมูลตัวอย่าง">
                 <option value="good">กำลังโหลด…</option>
               </select>
+              <svg class="ic demo-chevron" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
             </div>
           </div>
         </div>
-        <p class="sheet-note">โหมดเดโมใช้ข้อมูลจากซิมูเลเตอร์ เมื่อคลิปจบจะเริ่มรอบใหม่ให้อัตโนมัติ</p>
       </div>
     </section>
 
     <section class="sheet sheet-summary" id="sheetSummary" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="summaryTitle" hidden>
       <header class="sheet-head">
         <div>
-          <p class="eyebrow">จบรอบ</p>
-          <h2 id="summaryTitle">สรุปผลการฝึก</h2>
+          <h2 id="summaryTitle">สรุปผล</h2>
         </div>
-        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดสรุปผล">
-          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดสรุปผล">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
       </header>
       <div class="sheet-body">
-        <div class="score-hero">
-          <div class="score-ring-wrap">
-            <svg class="score-ring" viewBox="0 0 120 120" aria-hidden="true">
-              <circle class="score-track" cx="60" cy="60" r="52" pathLength="100"/>
-              <circle class="score-fill" id="scoreRing" cx="60" cy="60" r="52" pathLength="100"/>
-            </svg>
-            <div class="score-value"><span id="scoreValue">0</span><small>คะแนน</small></div>
+        <div class="summary-content" id="summaryContent">
+          <div class="score-hero">
+            <div class="score-ring-wrap">
+              <svg class="score-ring" viewBox="0 0 120 120" aria-hidden="true">
+                <defs>
+                  <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="var(--accent)"/>
+                    <stop offset="1" stop-color="var(--accent-2)"/>
+                  </linearGradient>
+                </defs>
+                <circle class="score-track" cx="60" cy="60" r="52" pathLength="100"/>
+                <circle class="score-fill" id="scoreRing" cx="60" cy="60" r="52" pathLength="100"/>
+              </svg>
+              <div class="score-value">
+                <span class="score-badge"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+                <span id="scoreValue">0</span>
+                <small>คะแนน</small>
+              </div>
+            </div>
+            <div class="score-copy">
+              <span class="grade-word" id="gradeWord">—</span>
+              <p class="score-meta" id="summaryMeta">—</p>
+            </div>
           </div>
-          <div class="score-copy">
-            <span class="grade-word" id="gradeWord">—</span>
-            <p class="score-meta" id="summaryMeta">—</p>
+
+          <div class="metric-grid">
+            <div class="metric-tile">
+              <div class="metric-top">
+                <span class="metric-icon"><svg class="ic" aria-hidden="true"><use href="#i-ruler"></use></svg></span>
+                <span class="metric-label">ความลึกถูก</span>
+                <strong class="metric-value" id="mDepth">0%</strong>
+              </div>
+              <div class="metric-bar"><i id="mDepthBar"></i></div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-top">
+                <span class="metric-icon"><svg class="ic" aria-hidden="true"><use href="#i-activity"></use></svg></span>
+                <span class="metric-label">จังหวะถูก</span>
+                <strong class="metric-value" id="mRate">0%</strong>
+              </div>
+              <div class="metric-bar"><i id="mRateBar"></i></div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-top">
+                <span class="metric-icon"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up-from-line"></use></svg></span>
+                <span class="metric-label">คืนตัวสุด</span>
+                <strong class="metric-value" id="mRecoil">0%</strong>
+              </div>
+              <div class="metric-bar"><i id="mRecoilBar"></i></div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-top">
+                <span class="metric-icon"><svg class="ic" aria-hidden="true"><use href="#i-hand"></use></svg></span>
+                <span class="metric-label">มือถูกตำแหน่ง</span>
+                <strong class="metric-value" id="mHand">0%</strong>
+              </div>
+              <div class="metric-bar"><i id="mHandBar"></i></div>
+            </div>
           </div>
+
+          <div class="summary-facts" id="summaryFacts"></div>
+
+          <p class="score-note">คะแนนคิดจากความลึก 30% · จังหวะ 25% · คืนตัว 20% · ตำแหน่งมือ 10% · CCF 15% (สูงสุดที่ 60%)<br>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</p>
         </div>
 
-        <div class="metric-grid">
-          <div class="metric-tile">
-            <div class="metric-top">
-              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
-              <span class="metric-label">ความลึกถูก</span>
-              <strong class="metric-value" id="mDepth">0%</strong>
-            </div>
-            <div class="metric-bar"><i id="mDepthBar"></i></div>
-          </div>
-          <div class="metric-tile">
-            <div class="metric-top">
-              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-gauge"></use></svg></span>
-              <span class="metric-label">จังหวะถูก</span>
-              <strong class="metric-value" id="mRate">0%</strong>
-            </div>
-            <div class="metric-bar"><i id="mRateBar"></i></div>
-          </div>
-          <div class="metric-tile">
-            <div class="metric-top">
-              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-recoil"></use></svg></span>
-              <span class="metric-label">คืนตัวสุด</span>
-              <strong class="metric-value" id="mRecoil">0%</strong>
-            </div>
-            <div class="metric-bar"><i id="mRecoilBar"></i></div>
-          </div>
-          <div class="metric-tile">
-            <div class="metric-top">
-              <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg></span>
-              <span class="metric-label">มือถูกตำแหน่ง</span>
-              <strong class="metric-value" id="mHand">0%</strong>
-            </div>
-            <div class="metric-bar"><i id="mHandBar"></i></div>
-          </div>
+        <div class="summary-empty" id="summaryEmpty" hidden>
+          <span class="empty-badge"><svg class="ic ic-xl" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+          <p class="empty-title">ยังไม่มีผล</p>
+          <p class="empty-sub">กดเริ่มฝึกก่อน</p>
+          <button type="button" class="btn btn-primary" id="goPracticeBtn">ไปฝึก</button>
         </div>
-
-        <div class="summary-facts" id="summaryFacts"></div>
-
-        <p class="score-note">คะแนนคิดจากความลึก 30% · จังหวะ 25% · คืนตัว 20% · ตำแหน่งมือ 10% · CCF 15% (สูงสุดที่ 60%)<br>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</p>
-
-        <div class="sheet-actions">
-          <button type="button" class="btn btn-ghost" id="csvBtn">
-            <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
-            <span>ดาวน์โหลด CSV</span>
-          </button>
-          <button type="button" class="btn btn-primary" id="againBtn">
-            <svg class="icon" aria-hidden="true"><use href="#i-restart"></use></svg>
-            <span>ฝึกอีกครั้ง</span>
-          </button>
-        </div>
+      </div>
+      <div class="sheet-foot" id="summaryFoot">
+        <button type="button" class="btn btn-ghost" id="csvBtn">
+          <svg class="ic" aria-hidden="true"><use href="#i-download"></use></svg>
+          <span>CSV</span>
+        </button>
+        <button type="button" class="btn btn-primary" id="againBtn">
+          <svg class="ic" aria-hidden="true"><use href="#i-rotate-ccw"></use></svg>
+          <span>ฝึกอีกครั้ง</span>
+        </button>
       </div>
     </section>
 
     <section class="sheet sheet-settings" id="sheetSettings" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="settingsTitle" hidden>
       <header class="sheet-head">
         <div>
-          <p class="eyebrow">ปรับแต่ง</p>
           <h2 id="settingsTitle">ตั้งค่า</h2>
         </div>
-        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดการตั้งค่า">
-          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดการตั้งค่า">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
       </header>
       <div class="sheet-body">
-        <div class="settings-group">
-          <h3>หน้าตา</h3>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>ธีมหน้าจอ</span>
-              <small>จำค่าที่เลือกไว้บนเครื่องนี้</small>
-            </div>
-            <div class="segmented compact" role="group" aria-label="เลือกธีม">
+        <div class="settings-list">
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-sun"></use></svg></span>
+            <span class="row-label">ธีม</span>
+            <div class="seg" role="group" aria-label="เลือกธีม">
               <button type="button" class="seg-btn theme-btn is-active" data-theme-set="dark" aria-pressed="true">มืด</button>
               <button type="button" class="seg-btn theme-btn" data-theme-set="light" aria-pressed="false">สว่าง</button>
             </div>
           </div>
-        </div>
 
-        <div class="settings-group">
-          <h3>การฝึก</h3>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>โปรไฟล์</span>
-              <small>ช่วงความลึกและเกณฑ์การกด</small>
-            </div>
-            <div class="segmented compact" role="group" aria-label="เลือกโปรไฟล์">
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-baby"></use></svg></span>
+            <span class="row-label">โปรไฟล์</span>
+            <div class="seg" role="group" aria-label="เลือกโปรไฟล์">
               <button type="button" class="seg-btn profile-btn is-active" data-profile="child" aria-pressed="true">เด็ก</button>
               <button type="button" class="seg-btn profile-btn" data-profile="adult" aria-pressed="false">ผู้ใหญ่</button>
             </div>
           </div>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>เมโทรนอม</span>
-              <small>เสียงจังหวะบนตัวหุ่น</small>
-            </div>
-            <button type="button" class="switch" id="metroSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดเมโทรนอม">
+
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-music"></use></svg></span>
+            <span class="row-label">เสียงจังหวะ</span>
+            <button type="button" class="switch" id="metroSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
               <span class="switch-knob"></span>
             </button>
           </div>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>เสียงแจ้งผลบนเครื่อง</span>
-              <small>ตั้งค่าที่ปุ่มบนหุ่น</small>
-            </div>
-            <span class="chip chip-ok has-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>เปิด</span>
-          </div>
-        </div>
 
-        <div class="settings-group">
-          <h3>การเชื่อมต่อ</h3>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>สถานะ</span>
-              <small id="settingsConnText">ยังไม่ได้เชื่อมต่อ</small>
-            </div>
-            <div class="inline-actions">
-              <button type="button" class="btn btn-ghost btn-sm" id="settingsConnectBtn">เปลี่ยน</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="settingsDisconnectBtn" hidden>ตัด</button>
-            </div>
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-activity"></use></svg></span>
+            <span class="row-label">เสียงบนหุ่น</span>
+            <span class="chip chip-ok"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg>เปิด</span>
           </div>
-        </div>
 
-        <div class="settings-group">
-          <h3>เซนเซอร์</h3>
-          <div class="setting-row">
-            <div class="setting-copy">
-              <span>ปรับเทียบ</span>
-              <small>ตั้งศูนย์ ตั้งน้ำหนัก และตั้งช่วงความลึก</small>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="openCalibBtn">เปิดตัวช่วย</button>
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-wifi"></use></svg></span>
+            <span class="row-label">เชื่อมต่อ</span>
+            <button type="button" class="row-action" id="settingsConnectBtn">
+              <span id="settingsConnText">ไม่ได้ต่อ</span>
+              <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
           </div>
-        </div>
+          <div class="row" id="settingsDisconnectRow" hidden>
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg></span>
+            <span class="row-label">ตัดการเชื่อมต่อ</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="settingsDisconnectBtn">ตัด</button>
+          </div>
 
-        <div class="about-card">
-          <span class="brand-mark small"><svg class="icon" aria-hidden="true"><use href="#i-logo"></use></svg></span>
-          <div class="about-copy">
-            <strong>หุ่นฝึก CPR</strong>
-            <p>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</p>
-            <small id="aboutMeta">ยังไม่เชื่อมต่อ</small>
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"></use></svg></span>
+            <span class="row-label">ปรับเทียบ</span>
+            <button type="button" class="row-action" id="openCalibBtn" aria-label="เปิดการปรับเทียบ">
+              <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+          </div>
+
+          <div class="row">
+            <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-info"></use></svg></span>
+            <span class="row-label">เกี่ยวกับ</span>
+            <button type="button" class="row-action" data-info="about" aria-label="เกี่ยวกับหุ่นฝึก">
+              <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -578,25 +673,38 @@
     <section class="sheet sheet-calib" id="sheetCalib" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="calibTitle" hidden>
       <header class="sheet-head">
         <div>
-          <p class="eyebrow">เซนเซอร์</p>
-          <h2 id="calibTitle">ปรับเทียบหุ่น</h2>
-          <p class="sheet-sub" id="calibSub">ทำตามขั้นตอนทีละขั้น ใช้เวลาประมาณ 2 นาที</p>
+          <h2 id="calibTitle">ปรับเทียบ</h2>
+          <p class="sheet-sub" id="calibSub">ทำตามขั้นตอนทีละขั้น</p>
         </div>
-        <button type="button" class="icon-btn sheet-close" data-close="1" aria-label="ปิดการปรับเทียบ">
-          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดการปรับเทียบ">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
       </header>
       <div class="sheet-body">
         <div class="stepper" id="calibStepper">
-          <div class="step" data-step="1"><span class="step-dot">1</span><span class="step-label">ตั้งศูนย์</span></div>
+          <div class="step" data-step="1"><span class="step-dot">1</span><span class="step-label">ศูนย์</span></div>
           <div class="step" data-step="2"><span class="step-dot">2</span><span class="step-label">น้ำหนัก</span></div>
           <div class="step" data-step="3"><span class="step-dot">3</span><span class="step-label">ช่วงกด</span></div>
           <div class="step" data-step="4"><span class="step-dot">4</span><span class="step-label">บันทึก</span></div>
         </div>
-
         <div class="calib-panel" id="calibPanel"></div>
         <div class="calib-status" id="calibStatus" role="status" hidden></div>
         <div class="calib-actions" id="calibActions"></div>
+      </div>
+    </section>
+
+    <section class="sheet sheet-info" id="sheetInfo" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="sheetInfoTitle" hidden>
+      <header class="sheet-head info-head">
+        <span class="ico big" id="infoHeadIcon"><svg class="ic ic-lg" aria-hidden="true"><use id="infoHeadUse" href="#i-info"></use></svg></span>
+        <div class="info-head-copy">
+          <h2 id="sheetInfoTitle">ข้อมูล</h2>
+        </div>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดข้อมูล">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="info-body" id="sheetInfoBody"></div>
       </div>
     </section>
   </div>

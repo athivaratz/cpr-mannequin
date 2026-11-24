@@ -122,7 +122,7 @@ def main():
                     device_scale_factor=2,
                 )
                 for label, context in (("1280", desktop), ("390", phone)):
-                    scroll = ".counter-card" if label == "390" else None
+                    scroll = "#countTile" if label == "390" else None
                     capture(context, base, "01-practice-%s.png" % label,
                             "?demo=good&seek=14", wait_ms=700)
                     capture(context, base, "02-cycle-%s.png" % label,
