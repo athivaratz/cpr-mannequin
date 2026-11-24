@@ -91,6 +91,8 @@
     colorCache: null,
     infoKey: 'depth',
     rulerWidth: 0,
+    scoreAnim: null,
+    metricTimers: [],
     bannerTimers: new Map()
   };
 
@@ -111,13 +113,16 @@
       'breathBanner', 'warnSps', 'warnOverload', 'toast', 'sheetLayer',
       'sheetConnect', 'sheetSummary', 'sheetCalib', 'sheetSettings', 'sheetInfo',
       'connectWs', 'connectSerial', 'serialHint', 'connectDemo', 'demoSelect',
+      'connectDisconnectRow', 'connectDisconnectBtn',
       'summaryContent', 'summaryEmpty', 'summaryFoot', 'scoreRing', 'scoreValue',
-      'gradeWord', 'summaryMeta', 'mDepth', 'mDepthBar', 'mRate', 'mRateBar',
-      'mRecoil', 'mRecoilBar', 'mHand', 'mHandBar', 'summaryFacts', 'csvBtn',
-      'againBtn', 'goPracticeBtn', 'settingsConnText', 'settingsConnectBtn',
-      'settingsDisconnectRow', 'settingsDisconnectBtn', 'metroSwitch',
-      'openCalibBtn', 'calibStepper', 'calibPanel', 'calibStatus', 'calibActions',
-      'calibSub', 'sheetInfoTitle', 'sheetInfoBody', 'infoHeadUse'
+      'gradeWord', 'summaryMeta', 'metricDepth', 'metricRate', 'metricRecoil',
+      'metricHand', 'metricCcf', 'mDepth', 'mRate', 'mRecoil', 'mHand', 'mCcf',
+      'mDepthRing', 'mRateRing', 'mRecoilRing', 'mHandRing', 'mCcfRing',
+      'summaryFacts', 'csvBtn', 'againBtn', 'goPracticeBtn', 'settingsConnText',
+      'settingsConnectBtn', 'settingsConnIconUse', 'metroSwitch', 'themeIconUse',
+      'profileIconUse', 'openCalibBtn', 'calibStepper', 'calibPanel',
+      'calibStatus', 'calibActions', 'sheetInfoTitle', 'sheetInfoBody',
+      'infoHeadUse'
     ];
     ids.forEach((id) => {
       els[id] = document.getElementById(id);
@@ -963,6 +968,7 @@
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+    setUse(els.profileIconUse, state.profile === 'child' ? 'baby' : 'user');
   }
 
   function refreshThemeButtons() {
@@ -971,6 +977,7 @@
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+    setUse(els.themeIconUse, state.theme === 'light' ? 'sun' : 'moon');
   }
 
   function refreshConfigUI() {
@@ -1039,7 +1046,9 @@
     const statusText = STATUS_TEXT[state.status] || STATUS_TEXT.off;
     setText(els.settingsConnText, state.status === 'demo' && state.demoTitle
       ? 'เดโม · ' + state.demoTitle : statusText);
-    if (els.settingsDisconnectRow) els.settingsDisconnectRow.hidden = state.status === 'off';
+    setUse(els.settingsConnIconUse, state.transportKind === 'serial' ? 'usb'
+      : state.transportKind === 'demo' ? 'monitor-play' : 'wifi');
+    if (els.connectDisconnectRow) els.connectDisconnectRow.hidden = state.status === 'off';
   }
 
   function setTheme(theme, persist) {
@@ -1598,6 +1607,7 @@
     if (state.opts.demo && els.demoSelect) {
       try { els.demoSelect.value = state.opts.demo; } catch (err) { /* no such option */ }
     }
+    refreshInfoPanels();
     openSheet('connect');
   }
 
@@ -1629,12 +1639,36 @@
     return MODE_TEXT[key] || MODE_TEXT.free;
   }
 
+  function metricTone(value) {
+    if (value >= 80) return 'ok';
+    if (value >= 50) return 'warn';
+    return 'bad';
+  }
+
+  function animateScore(target) {
+    if (state.scoreAnim) cancelAnimationFrame(state.scoreAnim);
+    state.scoreAnim = null;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setText(els.scoreValue, String(target));
+      return;
+    }
+    const started = performance.now();
+    const step = (now) => {
+      const t = clamp((now - started) / 900, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setText(els.scoreValue, String(Math.round(target * eased)));
+      if (t < 1) state.scoreAnim = requestAnimationFrame(step);
+      else setText(els.scoreValue, String(target));
+    };
+    state.scoreAnim = requestAnimationFrame(step);
+  }
+
   function populateSummary() {
     const sum = state.lastSum;
     if (!sum) return;
     const info = unitInfo();
     const score = clamp(Number(sum.score) || 0, 0, 100);
-    setText(els.scoreValue, String(score));
 
     let grade = 'ฝึกอีกนิด';
     if (score >= 85) grade = 'ยอดเยี่ยม';
@@ -1660,50 +1694,74 @@
 
     const n = Number(sum.n) || 0;
     const rated = Number(sum.rr) || 0;
-    const depthPct = pct(sum.dg, n);
-    const ratePct = pct(sum.rg, rated);
-    const recoilPct = pct(sum.rc, n);
-    const handPct = pct(sum.hd, n);
-
     const metrics = [
-      [els.mDepth, els.mDepthBar, depthPct],
-      [els.mRate, els.mRateBar, ratePct],
-      [els.mRecoil, els.mRecoilBar, recoilPct],
-      [els.mHand, els.mHandBar, handPct]
+      { box: els.metricDepth, valueEl: els.mDepth, ring: els.mDepthRing, value: pct(sum.dg, n) },
+      { box: els.metricRate, valueEl: els.mRate, ring: els.mRateRing, value: pct(sum.rg, rated) },
+      { box: els.metricRecoil, valueEl: els.mRecoil, ring: els.mRecoilRing, value: pct(sum.rc, n) },
+      { box: els.metricHand, valueEl: els.mHand, ring: els.mHandRing, value: pct(sum.hd, n) },
+      { box: els.metricCcf, valueEl: els.mCcf, ring: els.mCcfRing, value: clamp(Number(sum.ccf) || 0, 0, 100) }
     ];
-    metrics.forEach((entry) => {
-      setText(entry[0], entry[2] + '%');
-      if (entry[1]) entry[1].style.width = '0%';
-    });
+
+    state.metricTimers.forEach((timer) => clearTimeout(timer));
+    state.metricTimers = [];
 
     if (els.scoreRing) {
+      els.scoreRing.style.transition = 'none';
       els.scoreRing.style.strokeDashoffset = '100';
     }
 
+    metrics.forEach((metric) => {
+      if (metric.box) metric.box.dataset.tone = metricTone(metric.value);
+      setText(metric.valueEl, metric.value + '%');
+      if (metric.ring) {
+        metric.ring.style.transition = 'none';
+        metric.ring.style.strokeDashoffset = '100';
+      }
+    });
+    void (els.scoreRing && els.scoreRing.getBoundingClientRect());
+
+    if (els.scoreRing) els.scoreRing.style.transition = '';
+    metrics.forEach((metric) => {
+      if (metric.ring) metric.ring.style.transition = '';
+    });
+
+    animateScore(score);
+
     const longestPause = Number(sum.lp) || 0;
     const facts = [
-      ['จำนวน', n + ' ครั้ง'],
-      ['เวลา', fmtDuration(sum.dur)],
-      ['จังหวะเฉลี่ย', (Number(sum.bpm) || 0) + ' /นาที'],
-      ['ลึกเฉลี่ย', depthText(toDisplay(sum.pk)) + ' ' + info.unit],
-      ['หยุดนานสุด', longestPause > 0
-        ? (longestPause / 1000).toFixed(1) + ' วิ' : 'ไม่มี'],
-      ['ต่อเนื่อง', (Number(sum.ccf) || 0) + '%']
+      { icon: 'repeat', label: 'จำนวน', value: n + ' ครั้ง' },
+      { icon: 'clock', label: 'เวลา', value: fmtDuration(sum.dur) },
+      { icon: 'activity', label: 'จังหวะเฉลี่ย', value: (Number(sum.bpm) || 0) + ' /นาที' },
+      { icon: 'ruler', label: 'ลึกเฉลี่ย', value: depthText(toDisplay(sum.pk)) + ' ' + info.unit },
+      { icon: 'clock', label: 'หยุดนานสุด', value: longestPause > 0
+        ? (longestPause / 1000).toFixed(1) + ' วิ' : 'ไม่มี' }
     ];
     if (Number(sum.mode) === 1) {
-      facts.push(['รอบ 30:2', (Number(sum.cy) || 0) + ' รอบ']);
+      facts.push({ icon: 'repeat', label: 'รอบ 30:2', value: (Number(sum.cy) || 0) + ' รอบ' });
     }
     let factsHtml = '';
-    facts.forEach((fact) => {
-      factsHtml += '<div class="fact"><span>' + esc(fact[0]) + '</span><strong>' +
-        esc(fact[1]) + '</strong></div>';
+    facts.forEach((fact, index) => {
+      factsHtml += '<div class="fact" style="animation-delay:' + (index * 40) + 'ms">' +
+        '<span class="fact-ico"><svg class="ic" aria-hidden="true"><use href="#i-' +
+        fact.icon + '"></use></svg></span>' +
+        '<span class="fact-label">' + esc(fact.label) + '</span>' +
+        '<strong class="fact-value">' + esc(fact.value) + '</strong></div>';
     });
     if (els.summaryFacts) els.summaryFacts.innerHTML = factsHtml;
 
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     requestAnimationFrame(() => {
       if (els.scoreRing) els.scoreRing.style.strokeDashoffset = String(100 - score);
-      metrics.forEach((entry) => {
-        if (entry[1]) entry[1].style.width = clamp(entry[2], 0, 100) + '%';
+      metrics.forEach((metric, index) => {
+        if (!metric.ring) return;
+        if (reduce) {
+          metric.ring.style.strokeDashoffset = String(100 - clamp(metric.value, 0, 100));
+          return;
+        }
+        const timer = setTimeout(() => {
+          metric.ring.style.strokeDashoffset = String(100 - clamp(metric.value, 0, 100));
+        }, 80 * index + 60);
+        state.metricTimers.push(timer);
       });
     });
   }
@@ -1779,7 +1837,11 @@
 
   function aboutBody() {
     const cfg = state.cfg;
-    const board = cfg ? (cfg.board === 'nano' ? 'Nano' : 'ESP32') : '—';
+    let board = '—';
+    if (cfg && cfg.board) {
+      const name = String(cfg.board);
+      board = name === 'nano' ? 'Nano' : name === 'esp32' ? 'ESP32' : esc(name);
+    }
     const fw = cfg && cfg.fw ? 'FW ' + esc(cfg.fw) : 'FW —';
     const transport = state.status === 'off' ? 'ไม่ได้ต่อ'
       : state.transportKind === 'demo' ? 'เดโม'
@@ -1842,15 +1904,14 @@
     if (els.calibActions) els.calibActions.innerHTML = html || '';
   }
 
+  function calBadge(icon, tone) {
+    return '<span class="calib-badge' + (tone ? ' is-' + tone : '') + '">' +
+      '<svg class="ic" aria-hidden="true"><use href="#i-' + icon + '"></use></svg></span>';
+  }
+
   function renderCalib() {
     const cal = state.cal;
     if (!cal) return;
-
-    if (els.calibSub) {
-      setText(els.calibSub, cal.saved
-        ? 'บันทึกค่าปรับเทียบเรียบร้อย'
-        : 'ขั้นที่ ' + cal.step + ' จาก 4 · ทำตามลำดับ');
-    }
 
     $$('.step', els.calibStepper).forEach((step) => {
       const n = Number(step.dataset.step);
@@ -1860,49 +1921,50 @@
 
     let panel = '';
     if (cal.saved) {
-      panel = '<div class="calib-success">' +
-        '<span class="status-icon is-ok"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg></span>' +
-        '<h3>เรียบร้อย</h3>' +
-        '<p>หุ่นจะใช้ค่าปรับเทียบนี้ในรอบถัดไป</p>' +
-        '</div>';
+      panel = '<div class="calib-success">' + calBadge('circle-check', 'ok') +
+        '<h3>เรียบร้อย</h3></div>';
       calActions('<button type="button" class="btn btn-primary" data-cal-action="close">เสร็จสิ้น</button>');
     } else if (cal.step === 1) {
-      panel = '<h3>ยกมือออกจากหุ่น</h3>' +
-        '<p>แล้วกดตั้งศูนย์ ให้เซนเซอร์จำน้ำหนักเริ่มต้น</p>' +
+      panel = calBadge('target') +
+        '<h3>ยกมือออกจากหุ่น</h3>' +
+        '<p>แล้วกดตั้งศูนย์</p>' +
         '<button type="button" class="btn btn-primary" data-cal-action="tare">ตั้งศูนย์</button>';
       calActions('');
     } else if (cal.step === 2) {
-      panel = '<h3>วางของที่รู้น้ำหนัก</h3>' +
-        '<p>ใส่น้ำหนักเป็นกิโลกรัม แล้วกดบันทึก</p>' +
+      panel = calBadge('scale') +
+        '<h3>วางของที่รู้น้ำหนัก</h3>' +
+        '<p>ใส่น้ำหนักเป็นกิโลกรัม</p>' +
         '<label class="field"><span>น้ำหนัก (กก.)</span>' +
         '<input id="calWeightInput" type="number" min="0.2" max="20" step="0.1" inputmode="decimal" value="' +
         (has(cal.weight) ? cal.weight.toFixed(1) : '2.0') + '"></label>' +
         '<button type="button" class="btn btn-primary" data-cal-action="weight">บันทึก</button>';
       calActions('<button type="button" class="btn btn-ghost" data-cal-action="back">ย้อนกลับ</button>');
     } else if (cal.step === 3 && cal.tof) {
-      panel = '<h3>กดช้าๆ ให้ลึกราว 6 ซม.</h3>' +
+      panel = calBadge('ruler') +
+        '<h3>กดช้าๆ ให้ลึกราว 6 ซม.</h3>' +
         '<p>กดหลายๆ ครั้งจนตัวเลขขึ้น</p>' +
         '<div class="cal-counter"><span id="calPairCount">' + cal.presses + '</span>' +
         '<small>ครั้งที่กด</small></div>' +
-        '<button type="button" class="btn btn-primary" data-cal-action="finish">เสร็จ</button>' +
-        '<p class="calib-hint">' + (cal.active ? 'ระบบนับการกดให้อัตโนมัติ' : 'กำลังเริ่มบันทึก…') + '</p>';
+        '<button type="button" class="btn btn-primary" data-cal-action="finish">เสร็จ</button>';
       calActions('<button type="button" class="btn btn-ghost" data-cal-action="back">ย้อนกลับ</button>');
     } else if (cal.step === 3) {
-      const ready = has(cal.goodKg) && has(cal.deepKg) && cal.deepKg > cal.goodKg;
-      panel = '<h3>กดให้ลึก 5 ซม.</h3>' +
-        '<p>วัดด้วยไม้บรรทัด แล้วกดเก็บค่า ทำซ้ำที่ 6 ซม.</p>' +
+      const next = !has(cal.goodKg) ? 0 : (!has(cal.deepKg) ? 1 : -1);
+      panel = calBadge('ruler') +
+        '<h3>กดให้ลึก 5 ซม.</h3>' +
+        '<p>วัดด้วยไม้บรรทัด แล้วกดเก็บค่า</p>' +
         '<div class="band-capture">' +
-        '<button type="button" class="btn btn-ghost" data-cal-action="peak-good">เก็บค่า 5 ซม.<span>' +
-        (has(cal.goodKg) ? cal.goodKg.toFixed(1) + ' กก.' : '—') + '</span></button>' +
-        '<button type="button" class="btn btn-ghost" data-cal-action="peak-deep">เก็บค่า 6 ซม.<span>' +
-        (has(cal.deepKg) ? cal.deepKg.toFixed(1) + ' กก.' : '—') + '</span></button>' +
+        '<div class="band-value' + (next === 0 ? ' is-next' : '') + '">' +
+        '<span>5 ซม.</span><strong>' +
+        (has(cal.goodKg) ? cal.goodKg.toFixed(1) + ' กก.' : '—') + '</strong></div>' +
+        '<div class="band-value' + (next === 1 ? ' is-next' : '') + '">' +
+        '<span>6 ซม.</span><strong>' +
+        (has(cal.deepKg) ? cal.deepKg.toFixed(1) + ' กก.' : '—') + '</strong></div>' +
         '</div>' +
-        '<button type="button" class="btn btn-primary" data-cal-action="bands"' +
-        (ready ? '' : ' disabled') + '>ใช้ช่วงนี้</button>';
+        '<button type="button" class="btn btn-primary" data-cal-action="peak">เก็บค่า</button>';
       calActions('<button type="button" class="btn btn-ghost" data-cal-action="back">ย้อนกลับ</button>');
     } else {
-      panel = '<h3>บันทึกลงหุ่น</h3>' +
-        '<p>เก็บค่าปรับเทียบไว้ในหน่วยความจำของหุ่น</p>' +
+      panel = calBadge('circle-check') +
+        '<h3>บันทึกลงหุ่น</h3>' +
         '<button type="button" class="btn btn-primary" data-cal-action="save">บันทึก</button>';
       calActions('<button type="button" class="btn btn-ghost" data-cal-action="back">ย้อนกลับ</button>');
     }
@@ -1967,6 +2029,8 @@
       }
       calSend('cal weight ' + kg.toFixed(1), 'cal weight', () => {
         state.cal.weight = kg;
+        state.cal.goodKg = null;
+        state.cal.deepKg = null;
         state.cal.step = 3;
         calStatus('บันทึกน้ำหนักแล้ว', 'ok');
         renderCalib();
@@ -1979,33 +2043,35 @@
         calStatus('ประมวลผลช่วงความลึกแล้ว', 'ok');
         renderCalib();
       });
-    } else if (action === 'peak-good' || action === 'peak-deep') {
+    } else if (action === 'peak') {
       calSend('cal peak', 'cal peak', (ack) => {
         const kg = parseFloat(ack.msg);
         if (!has(kg)) {
           calStatus('อ่านค่าน้ำหนักไม่ได้', 'bad');
+          renderCalib();
           return;
         }
-        if (action === 'peak-good') {
-          state.cal.goodKg = kg;
-          calStatus('บันทึกจุด 5 ซม. ที่ ' + kg.toFixed(1) + ' กก.', 'ok');
-        } else {
-          state.cal.deepKg = kg;
-          calStatus('บันทึกจุด 6 ซม. ที่ ' + kg.toFixed(1) + ' กก.', 'ok');
-        }
-        renderCalib();
-      });
-    } else if (action === 'bands') {
-      if (!has(cal.goodKg) || !has(cal.deepKg) || cal.deepKg <= cal.goodKg) {
-        calStatus('ต้องได้ค่าจุดลึกมากกว่าจุดตื้น', 'bad');
-        return;
-      }
-      calSend('cal bands ' + cal.goodKg.toFixed(1) + ' ' + cal.deepKg.toFixed(1),
-        'cal bands', () => {
-          calStatus('ตั้งช่วงความลึกแล้ว', 'ok');
-          state.cal.step = 4;
+        if (!has(cal.goodKg)) {
+          cal.goodKg = kg;
+          calStatus('เก็บค่า 5 ซม. แล้ว', 'ok');
           renderCalib();
-        });
+          return;
+        }
+        if (!has(cal.deepKg)) {
+          if (kg <= cal.goodKg) {
+            calStatus('ค่าจุดลึกต้องมากกว่าจุดตื้น', 'bad');
+            renderCalib();
+            return;
+          }
+          cal.deepKg = kg;
+          calSend('cal bands ' + cal.goodKg.toFixed(1) + ' ' + cal.deepKg.toFixed(1),
+            'cal bands', () => {
+              calStatus('ตั้งช่วงความลึกแล้ว', 'ok');
+              cal.step = 4;
+              renderCalib();
+            });
+        }
+      });
     } else if (action === 'save') {
       calSend('cal save', 'cal save', () => {
         state.cal.saved = true;
@@ -2018,8 +2084,11 @@
       if (state.cal.step === 3) {
         if (state.cal.active && state.transport) state.transport.send('cal cancel');
         state.cal.active = false;
+        state.cal.goodKg = null;
+        state.cal.deepKg = null;
         state.cal.step = 2;
       } else if (state.cal.step === 4) {
+        if (!state.cal.tof) state.cal.deepKg = null;
         state.cal.step = 3;
       } else {
         state.cal.step = Math.max(1, state.cal.step - 1);
@@ -2224,8 +2293,8 @@
     }
 
     if (els.settingsConnectBtn) els.settingsConnectBtn.addEventListener('click', openConnect);
-    if (els.settingsDisconnectBtn) {
-      els.settingsDisconnectBtn.addEventListener('click', () => {
+    if (els.connectDisconnectBtn) {
+      els.connectDisconnectBtn.addEventListener('click', () => {
         if (state.transport) {
           try { state.transport.disconnect(); } catch (err) { /* ignore */ }
           state.transport = null;

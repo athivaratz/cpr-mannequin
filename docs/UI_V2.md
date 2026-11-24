@@ -256,8 +256,14 @@ desktop: top of the right column), stacked with 8px gaps, and animate per §7.
 ### 6.7 Sheets
 One sheet system. Phone/tablet: bottom sheet, `--r-lg` top corners, grab
 handle (36×4 pill), max-height 88dvh, content scrolls inside, sticky footer
-for action buttons. Desktop (≥ 1024): centered dialog, max-width 560px
-(summary 640px), `--r-lg`. Backdrop `--backdrop`. Close with the round x
+for action buttons. A bottom sheet is never wider than 600px: from 600px
+viewport width it is centered (`margin-inline:auto`) with all its content
+inside that width. Phone-landscape (height < 500): centered sheet
+`width:min(600px, 100% - 32px)`, max-height `calc(100dvh - 16px)`, the
+summary lays out in two columns (score ring 140px left, metrics + facts
+right) and the calibration step card is horizontal (48px icon left, text
+right) so the primary action is visible without scrolling at 844×390.
+Desktop (≥ 1024): centered dialog, max-width 560px (summary 640px), `--r-lg`. Backdrop `--backdrop`. Close with the round x
 button, the backdrop, or Escape. Focus trap and return focus as v1.
 
 ### 6.8 Info sheet (#sheetInfo)
@@ -266,7 +272,7 @@ copy from §8, chosen by key: `depth, rate, recoil, hand, count, ccf, score,
 sps, about`.
 
 ### 6.9 Summary sheet (#sheetSummary)
-1. Score ring: 200px (phone) / 240px (desktop) ring, 14px stroke on a
+1. Score ring: 200px (phone) / 180px (desktop; 140px phone-landscape) ring, 14px stroke on a
    --surface-2 track, progress in --grad-accent (SVG linearGradient), round
    caps. In the center a 64px round badge (--accent-tint) with the trophy icon,
    above the score number (`--t-score`) and the caption **คะแนน**.
