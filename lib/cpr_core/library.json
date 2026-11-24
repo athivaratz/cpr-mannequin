@@ -1,0 +1,8 @@
+{
+  "name": "cpr_core",
+  "version": "0.1.0",
+  "description": "Pure C++ CPR algorithm core shared by all targets.",
+  "platforms": "*",
+  "frameworks": "*",
+  "dependencies": []
+}
