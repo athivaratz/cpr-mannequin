@@ -966,6 +966,8 @@
       this.reader = null;
       this.writer = null;
       this.stopped = true;
+      this.received = false;
+      this.configTimer = null;
       this.onMessage = null;
       this.onStatus = null;
       this.onError = null;
@@ -978,6 +980,7 @@
         return;
       }
       this.stopped = false;
+      this.received = false;
       this.onStatus && this.onStatus('connecting');
       try {
         this.port = await navigator.serial.requestPort();
@@ -988,6 +991,13 @@
         this.writer = this.port.writable.getWriter();
         this.onStatus && this.onStatus('connected');
         this.readLoop();
+        // Ask for config immediately; on ESP32 this also turns on USB streaming.
+        // Retry once after 2 s in case opening the port reset a Nano bootloader.
+        this.send('config');
+        this.configTimer = setTimeout(() => {
+          this.configTimer = null;
+          if (!this.stopped && !this.received) this.send('config');
+        }, 2000);
       } catch (err) {
         this.stopped = true;
         this.onStatus && this.onStatus('off', { error: err.message });
@@ -1016,6 +1026,11 @@
             } catch (err) {
               continue;
             }
+            this.received = true;
+            if (this.configTimer) {
+              clearTimeout(this.configTimer);
+              this.configTimer = null;
+            }
             this.onMessage && this.onMessage(obj, { instant: false, at: has(obj.t) ? obj.t : null });
           }
           if (buffer.length > 8192) buffer = '';
@@ -1040,6 +1055,10 @@
 
     async disconnect() {
       this.stopped = true;
+      if (this.configTimer) {
+        clearTimeout(this.configTimer);
+        this.configTimer = null;
+      }
       try { if (this.reader) await this.reader.cancel(); } catch (err) { /* ignore */ }
       try { if (this.writer) this.writer.releaseLock(); } catch (err) { /* ignore */ }
       try { if (this.port) await this.port.close(); } catch (err) { /* ignore */ }

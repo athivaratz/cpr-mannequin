@@ -141,3 +141,25 @@ Fast presses around 120/min can still show `ยังค้าง` with a stock 
 because there may be only one or two samples in the trough. Raising the recoil
 line a little or setting ความไว to ไว helps. If that is not enough, the RATE pin
 mod for 80 SPS is still the reliable fix.
+
+## Hardware check: load-cell polarity, Serial default, and HX711 boot retry
+
+Testing on the real ESP32 (`esp32dev`, CP210x on COM3) showed three things:
+
+- The default `scaleFactor` of `-10000.0` (from DESIGN.md §2.2) had the opposite
+  sign to this mannequin's load-cell wiring/mounting, so pressing read negative
+  kg (down to `-5.7 kg`), leaving the detector idle (`ph=0`) and the dashboard
+  clamped at `0.0`. `cpr::calibDefaults()` now starts at `+10000.0` so pressing
+  reads positive before calibration; running `cal weight` still sets the exact
+  signed scale for any wiring.
+- Even after 12 minutes with Serial Monitor closed, the board was running and
+  sampling at 12 SPS; UART0 on the CP210x has no hardware flow control, and
+  `net.cpp` already checks `Serial.availableForWrite()`. `env:esp32dev` now
+  builds with `-DCPR_SERIAL_STREAM_DEFAULT=1` so Serial Monitor shows live
+  output immediately, and `SerialTransport.connect()` sends `config` on open so
+  Web Serial works regardless of the default flag.
+- `Sensors::begin()` now waits `kHxPowerUpDelayMs` (400 ms, engineering value,
+  tunable) before resetting the HX711, uses `kHxReadTimeoutMs` = 500 ms (above
+  the 400 ms 10-SPS reset settling time), and falls back to `HxState::Probe` if
+  boot discard or tare fails so `Sensors::service()` retries taring instead of
+  staying `Present` with `offset = 0`.
