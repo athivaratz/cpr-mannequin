@@ -17,6 +17,7 @@ constexpr uint8_t kHx711Sck = 17;
 constexpr uint8_t kBuzzer = 25;
 
 // LEDs, active high.
+constexpr uint8_t kLedBuiltin = 2;
 constexpr uint8_t kLedPos = 26;
 constexpr uint8_t kLedGood = 27;
 constexpr uint8_t kLedShallow = 18;

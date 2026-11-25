@@ -25,12 +25,17 @@ accepts a WebSocket text frame that contains one command without a newline.
 ### Serial (USB)
 
 - 115200 baud, 8 data bits, no parity, 1 stop bit.
-- On the ESP32 build, output to the USB port is **off by default**. This keeps
-  the live feed off the USB chip and stops a charger-only setup from stalling
-  the sampling task. The Nano build streams by default.
-- To turn USB output on or off, open the Serial Monitor and type `serial on` or
-  `serial off`. Any valid command also turns streaming on. The two `serial`
-  commands are answered directly on USB.
+- Both ESP32 (`-DCPR_SERIAL_STREAM_DEFAULT=1`) and Nano stream JSON over USB by
+  default when idle.
+- On the ESP32 build, Wi-Fi web and USB web modes are mutually exclusive:
+  - While a Wi-Fi WebSocket client is connected, USB output and USB commands
+    are paused until all Wi-Fi clients disconnect.
+  - While a USB web client is active (`usb active` sent at least every 10 s,
+    typically every 3 s by `tools/usb_server.py` or `SerialTransport`), the
+    Wi-Fi AP is powered off (`WIFI_OFF`). Receiving `usb idle` or timing out
+    after 10 s turns the Wi-Fi AP back on.
+- `serial on` / `serial off` can still toggle USB output while not in Wi-Fi
+  mode. The two `serial` commands are answered directly on USB.
 - Device to host (when streaming): JSON objects and `#` log lines, one per line.
 - Host to device: command lines from §4.
 
@@ -59,8 +64,8 @@ accepts a WebSocket text frame that contains one command without a newline.
 - `c`, `ps`, `pe`, `cy`, `ov`, and `end` are sent as soon as the engine emits
   them, normally on the same sample. These and `ack` messages go through the
   output queue, so they are not lost the way a skipped frame is.
-- `diag` is sent over WebSocket only, every 5 seconds, while at least one
-  WebSocket client is connected. See §5.
+- `diag` is sent every 5 seconds over WebSocket (when a Wi-Fi client is
+  connected) or over Serial (when streaming and not in Wi-Fi mode). See §5.
 - `cfg` is sent at boot, on a WebSocket connection, after `config`, and after
   commands that change the profile, thresholds or calibration.
 - `sum` follows the `end` message for a session.
@@ -140,6 +145,7 @@ case-insensitive. Blank lines are ignored.
 | `set <key> <value>` | Set one threshold. Keys: `good`, `deep`, `over`, `contact`, `recoil`, `filter`. |
 | `set reset` | Restore the default user thresholds. |
 | `serial on` / `serial off` | Start or stop USB output. Serial input only. |
+| `usb active` / `usb idle` | ESP32 Serial only. `usb active` enters/renews USB web mode (turns off Wi-Fi AP, 10 s lease); `usb idle` exits immediately and re-enables Wi-Fi AP. Silent (no `ack`). |
 | `config` | Return the current configuration. |
 | `wifi pass <8-63 chars>` | Store a new AP password. Applied after reboot. ESP32 only. |
 
@@ -380,12 +386,13 @@ hand cards and the ToF-only calibration controls.
 
 ### `diag` — runtime diagnostics
 
-WebSocket only. Sent every 5 seconds while at least one WebSocket client is
-connected. Not sent on Serial and not queued like events.
+Sent every 5 seconds over WebSocket (when a Wi-Fi client is connected) or over
+Serial (when USB streaming is on and not in Wi-Fi mode). Not queued like
+events.
 
 ```
 {"ty":"diag","up":312,"rx":0,"rxBad":0,"qDrop":0,"sSkip":0,"fDrop":0,
- "sps":10,"heap":180000,"ser":0,"hx":1}
+ "sps":10,"heap":180000,"ser":1,"hx":1,"wifi":1}
 ```
 
 | Field | Meaning |
@@ -400,6 +407,7 @@ connected. Not sent on Serial and not queued like events.
 | `heap` | free heap in bytes |
 | `ser` | USB output streaming is on (`1`) or off (`0`) |
 | `hx` | HX711 is present (`1`) or not (`0`) |
+| `wifi` | Wi-Fi AP is on (`1`) or off (`0`, e.g. while in USB web mode) |
 
 A charger-only setup can make `rx` and `rxBad` climb from noise on the USB
 chip. That is harmless now because frames go to Wi-Fi first and USB output is

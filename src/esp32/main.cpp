@@ -18,7 +18,7 @@
 
 namespace {
 
-constexpr const char* kFirmwareVersion = "1.0.0";
+constexpr const char* kFirmwareVersion = "1.3.0";
 constexpr const char* kDefaultWifiPass = "cprtrain123";
 constexpr size_t kOutQueueLength = 24;
 constexpr size_t kOutLineLength = cpr::kMaxJsonLine + 8;

@@ -163,3 +163,19 @@ Testing on the real ESP32 (`esp32dev`, CP210x on COM3) showed three things:
   the 400 ms 10-SPS reset settling time), and falls back to `HxState::Probe` if
   boot discard or tare fails so `Sensors::service()` retries taring instead of
   staying `Present` with `offset = 0`.
+
+## USB dashboard mode, mutually exclusive Wi-Fi/USB, and built-in LED timings
+
+These constants in `src/esp32/net.cpp` and `tools/usb_server.py` are
+engineering values (tunable), not clinical numbers:
+
+- `kUsbWebTimeoutMs = 10000` (10 s) lease timeout on ESP32: if no `usb active`
+  heartbeat arrives within 10 s while in USB web mode, the board returns to
+  Idle and re-enables the Wi-Fi AP.
+- `USB_HEARTBEAT_S = 3.0` (3 s) heartbeat interval sent by `tools/usb_server.py`
+  and `SerialTransport` in `web/app.js` while a USB web client is active.
+- `kLedIdleHalfPeriodMs = 500`, `kLedWifiPeriodMs = 3000`,
+  `kLedWifiLowMs = 500` on `pins::kLedBuiltin` (GPIO 2, active high).
+- `usb active` and `usb idle` are handled directly in `src/esp32/net.cpp`
+  (same pattern as `serial on` / `serial off`) so `lib/cpr_core` and Nano
+  firmware remain unchanged.
