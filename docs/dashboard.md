@@ -287,12 +287,12 @@ index,time_s,peak,unit,depth_level,bpm,rate_level,recoil_ok,hand_ok,all_ok
 
 | ไฟล์ | ขนาด gzip |
 |---|---:|
-| `web/index.html` | 8,187 ไบต์ |
+| `web/index.html` | 8,191 ไบต์ |
 | `web/app.css` | 9,953 ไบต์ |
-| `web/app.js` | 24,898 ไบต์ |
+| `web/app.js` | 24,744 ไบต์ |
 | `web/fonts/anuphan-thai.woff2` | 35,409 ไบต์ |
 | ไฟล์อื่น (`LICENSES.txt`, `OFL.txt`) | 3,562 ไบต์ |
-| รวมทั้งเว็บ (ไม่รวม `demo/*.jsonl`) | 82,009 ไบต์ (80.1 KiB) |
+| รวมทั้งเว็บ (ไม่รวม `demo/*.jsonl`) | 81,859 ไบต์ (79.9 KiB) |
 
 เฟิร์มแวร์ ESP32 ใช้แฟลช 84.3% (1,105,023 จาก 1,310,720 ไบต์)
 ไฟล์ `demo/*.jsonl` ฝังแยกต่างหากและไม่ได้นับในตารางนี้
