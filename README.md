@@ -147,10 +147,9 @@ CPR Smart Chest เป็นผลงานที่ผู้จัดทำจ�
   ```bash
   git clone https://github.com/athivaratz/cpr-mannequin.git
   cd cpr-mannequin
-  git checkout dev
   ```
 
-- **ดาวน์โหลด ZIP:** เปิดหน้า <https://github.com/athivaratz/cpr-mannequin> เลือก branch `dev` กดปุ่ม Code แล้วเลือก Download ZIP จากนั้นแตกไฟล์ไว้ในโฟลเดอร์ที่ชื่อไม่มีช่องว่างหรืออักษรไทย
+- **ดาวน์โหลด ZIP:** เปิดหน้า <https://github.com/athivaratz/cpr-mannequin> เลือก branch `master` กดปุ่ม Code แล้วเลือก Download ZIP จากนั้นแตกไฟล์ไว้ในโฟลเดอร์ที่ชื่อไม่มีช่องว่างหรืออักษรไทย
 
 ### ขั้นที่ 4 เปิดโปรเจกต์ใน PlatformIO
 
