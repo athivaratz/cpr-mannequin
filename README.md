@@ -359,4 +359,4 @@ python3 tools/devserver.py --port 8080 --recording recordings/good.jsonl --loop
 
 **จัดทำโดย:** [Athivarat R.](https://www.instagram.com/athivaratz)
 
-**เสนอ:** อาจารย์นารีรัตถ์ แถมยิ้ม (ผู้มอบหมายงาน)
+**เสนอ:** อาจารย์นารีรัตน์ แถมยิ้ม (ผู้มอบหมายงาน)
