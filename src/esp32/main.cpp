@@ -5,12 +5,14 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cpr.h"
 
 #include "feedback.h"
 #include "net.h"
+#include "pins.h"
 #include "sensors.h"
 #include "storage.h"
 
@@ -30,6 +32,7 @@ QueueHandle_t g_cmdQueue = nullptr;
 cpr::Engine g_engine;
 cpr::Config g_cfg;
 cpr::CalibrationData g_cal;
+cpr::UserTh g_th;
 cpr::Mode g_mode = cpr::Mode::Free;
 cpr::Metronome g_metro;
 
@@ -59,7 +62,9 @@ void queueLine(const char* line, bool important) {
       const char* message = "# line too long";
       memset(buffer, 0, sizeof(buffer));
       strncpy(buffer, message, sizeof(buffer) - 1);
-      xQueueSend(g_outQueue, buffer, portMAX_DELAY);
+      if (xQueueSend(g_outQueue, buffer, pdMS_TO_TICKS(20)) != pdTRUE) {
+        net::noteQueueDrop();
+      }
     }
     return;
   }
@@ -67,8 +72,10 @@ void queueLine(const char* line, bool important) {
   memset(buffer, 0, sizeof(buffer));
   memcpy(buffer, line, length + 1);
 
-  const TickType_t wait = important ? portMAX_DELAY : 0;
-  xQueueSend(g_outQueue, buffer, wait);
+  const TickType_t wait = important ? pdMS_TO_TICKS(20) : 0;
+  if (xQueueSend(g_outQueue, buffer, wait) != pdTRUE) {
+    net::noteQueueDrop();
+  }
 }
 
 void sendAck(const char* cmd, bool ok, const char* msg) {
@@ -81,16 +88,154 @@ void sendConfig() {
   char buffer[kOutLineLength];
   const size_t length =
       cpr::jsonConfig(buffer, sizeof(buffer), g_cfg, g_cal,
-                      g_sensors.tofPresent(), "esp32", kFirmwareVersion);
+                      g_sensors.tofPresent(), "esp32", kFirmwareVersion,
+                      g_sensors.hx711Present(), CPR_HAS_FOIL != 0);
   if (length == 0) return;
 
   net::setConfigLine(buffer);
   queueLine(buffer, true);
 }
 
-void applyCalibrationBands() {
-  g_cfg.th.goodMinKg = g_cal.goodMinKg;
-  g_cfg.th.deepMinKg = g_cal.deepMinKg;
+void applyUserTh() {
+  g_cfg = cpr::defaultConfig((cpr::Profile)g_cal.profile);
+  cpr::userThApply(g_th, g_cfg);
+  g_cal.goodMinKg = g_th.good;
+  g_cal.deepMinKg = g_th.deep;
+  g_engine.setConfig(g_cfg);
+}
+
+char lowerAscii(char c) {
+  return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
+}
+
+bool startsWithSet(const char* line) {
+  const char* prefix = "set ";
+  for (; *prefix; ++prefix, ++line) {
+    if (*line == '\0' || lowerAscii(*line) != *prefix) return false;
+  }
+  return true;
+}
+
+void lowerWord(char* s) {
+  for (char* p = s; *p; ++p) *p = lowerAscii(*p);
+}
+
+bool parseFloatToken(const char* tok, float& out) {
+  if (tok == nullptr || *tok == '\0') return false;
+  char* end = nullptr;
+  const float value = strtof(tok, &end);
+  if (end == tok || *end != '\0') return false;
+  out = value;
+  return true;
+}
+
+void applySet(const cpr::UserTh& t) {
+  if (!cpr::userThValid(t)) {
+    sendAck("set", false, "bad range");
+    return;
+  }
+
+  g_th = t;
+  const bool saved = storage::saveUserTh(g_th);
+  applyUserTh();
+  sendAck("set", saved, saved ? "ok" : "write failed");
+  sendConfig();
+}
+
+void handleSet(const char* line) {
+  char work[kCmdLineLength];
+  const size_t length = strlen(line);
+  if (length >= sizeof(work)) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+  memcpy(work, line, length + 1);
+
+  char* save = nullptr;
+  if (strtok_r(work, " \t\r\n", &save) == nullptr) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+
+  char* tok = strtok_r(nullptr, " \t\r\n", &save);
+  if (tok == nullptr) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+  lowerWord(tok);
+
+  if (strcmp(tok, "reset") == 0) {
+    if (strtok_r(nullptr, " \t\r\n", &save) != nullptr) {
+      sendAck("set", false, "bad syntax");
+      return;
+    }
+    cpr::userThDefaults(g_th);
+    const bool saved = storage::saveUserTh(g_th);
+    applyUserTh();
+    sendAck("set", saved, saved ? "ok" : "write failed");
+    sendConfig();
+    return;
+  }
+
+  if (strcmp(tok, "th") == 0) {
+    float values[6];
+    for (uint8_t i = 0; i < 6; ++i) {
+      char* value = strtok_r(nullptr, " \t\r\n", &save);
+      if (value == nullptr || !parseFloatToken(value, values[i])) {
+        sendAck("set", false, "bad syntax");
+        return;
+      }
+    }
+    if (strtok_r(nullptr, " \t\r\n", &save) != nullptr) {
+      sendAck("set", false, "bad syntax");
+      return;
+    }
+
+    cpr::UserTh t;
+    t.good = values[0];
+    t.deep = values[1];
+    t.over = values[2];
+    t.contact = values[3];
+    t.recoil = values[4];
+    t.filt = values[5];
+    applySet(t);
+    return;
+  }
+
+  int field = -1;
+  if (strcmp(tok, "good") == 0) field = 0;
+  else if (strcmp(tok, "deep") == 0) field = 1;
+  else if (strcmp(tok, "over") == 0) field = 2;
+  else if (strcmp(tok, "contact") == 0) field = 3;
+  else if (strcmp(tok, "recoil") == 0) field = 4;
+  else if (strcmp(tok, "filter") == 0) field = 5;
+
+  if (field < 0) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+
+  char* valueTok = strtok_r(nullptr, " \t\r\n", &save);
+  float value = 0.0f;
+  if (valueTok == nullptr || !parseFloatToken(valueTok, value)) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+  if (strtok_r(nullptr, " \t\r\n", &save) != nullptr) {
+    sendAck("set", false, "bad syntax");
+    return;
+  }
+
+  cpr::UserTh t = g_th;
+  switch (field) {
+    case 0: t.good = value; break;
+    case 1: t.deep = value; break;
+    case 2: t.over = value; break;
+    case 3: t.contact = value; break;
+    case 4: t.recoil = value; break;
+    default: t.filt = value; break;
+  }
+  applySet(t);
 }
 
 bool readHxTare() {
@@ -104,7 +249,12 @@ bool readTofRest() {
 }
 
 void handleTare() {
-  const bool hxOk = g_sensors.hx711Present() ? readHxTare() : true;
+  if (!g_sensors.hx711Present()) {
+    sendAck("tare", false, "no hx711");
+    return;
+  }
+
+  const bool hxOk = readHxTare();
   const bool tofOk = g_sensors.tofPresent() ? readTofRest() : true;
   const bool ok = hxOk && tofOk;
   sendAck("tare", ok, ok ? "ok" : "sensor not ready");
@@ -112,10 +262,8 @@ void handleTare() {
 }
 
 void handleProfile(uint8_t arg) {
-  g_cfg = cpr::defaultConfig((cpr::Profile)arg);
   g_cal.profile = arg;
-  applyCalibrationBands();
-  g_engine.setConfig(g_cfg);
+  applyUserTh();
   g_engine.setCalibration(g_cal);
   sendAck("profile", true, "ok");
   sendConfig();
@@ -144,17 +292,22 @@ void handleCalWeight(float kg) {
 }
 
 void handleCalBands(float goodKg, float deepKg) {
-  if (goodKg <= 0.0f || deepKg <= goodKg) {
+  cpr::UserTh candidate = g_th;
+  candidate.good = goodKg;
+  candidate.deep = deepKg;
+  if (candidate.deep >= candidate.over) {
+    candidate.over = candidate.deep + 6.0f;
+    if (candidate.over > 60.0f) candidate.over = 60.0f;
+  }
+
+  if (!cpr::userThValid(candidate)) {
     sendAck("cal bands", false, "bad bands");
     return;
   }
 
-  g_cfg.th.goodMinKg = goodKg;
-  g_cfg.th.deepMinKg = deepKg;
-  g_cal.goodMinKg = goodKg;
-  g_cal.deepMinKg = deepKg;
-  g_engine.setConfig(g_cfg);
-  g_engine.setCalibration(g_cal);
+  g_th = candidate;
+  storage::saveUserTh(g_th);
+  applyUserTh();
   sendAck("cal bands", true, "ok");
   sendConfig();
 }
@@ -172,6 +325,10 @@ void handleCalPeak() {
 
 void handleCommand(const char* line) {
   if (isBlank(line)) return;
+  if (startsWithSet(line)) {
+    handleSet(line);
+    return;
+  }
 
   cpr::Command command;
   if (!cpr::parseCommand(line, command)) {
@@ -233,8 +390,7 @@ void handleCommand(const char* line) {
       }
       g_cal = fitted;
       g_engine.setCalibration(g_cal);
-      applyCalibrationBands();
-      g_engine.setConfig(g_cfg);
+      applyUserTh();
       sendAck("cal finish", true, "ok");
       sendConfig();
       break;
@@ -264,16 +420,17 @@ void handleCommand(const char* line) {
       break;
     }
 
-    case cpr::Cmd::CalReset:
+    case cpr::Cmd::CalReset: {
       cpr::calibDefaults(g_cal);
-      g_cfg = cpr::defaultConfig((cpr::Profile)g_cal.profile);
-      applyCalibrationBands();
+      cpr::userThDefaults(g_th);
       g_sensors.setScale(g_cal.scaleFactor);
       g_engine.setCalibration(g_cal);
-      g_engine.setConfig(g_cfg);
-      sendAck("cal reset", true, "ok");
+      applyUserTh();
+      const bool saved = storage::saveUserTh(g_th);
+      sendAck("cal reset", saved, saved ? "ok" : "write failed");
       sendConfig();
       break;
+    }
 
     case cpr::Cmd::Config:
       sendAck("config", true, "ok");
@@ -325,7 +482,7 @@ void pollEvents() {
 void sendFrame() {
   char buffer[kOutLineLength];
   if (cpr::jsonFrame(buffer, sizeof(buffer), g_engine.live()) != 0) {
-    queueLine(buffer, false);
+    net::setFrame(buffer);
   }
 }
 
@@ -334,6 +491,8 @@ void sampleTask(void*) {
 
   uint32_t lastFrameMs = millis();
   uint32_t lastProcessMs = lastFrameMs;
+  uint32_t lastRateCheckMs = lastFrameMs;
+  bool fastFilter = false;
   bool haveFrameTime = true;
 
   for (;;) {
@@ -344,6 +503,11 @@ void sampleTask(void*) {
            xQueueReceive(g_cmdQueue, commandLine, 0) == pdTRUE) {
       commandLine[kCmdLineLength - 1] = '\0';
       handleCommand(commandLine);
+    }
+
+    if (g_sensors.service(now)) {
+      g_engine.setTofPresent(g_sensors.tofPresent());
+      sendConfig();
     }
 
     cpr::Sample sample;
@@ -368,6 +532,7 @@ void sampleTask(void*) {
     g_feedback.tick(now);
 
     pollEvents();
+    net::setDiagSensor(g_engine.live().sps, g_sensors.hx711Present());
 
     if (!haveFrameTime ||
         (uint32_t)(now - lastFrameMs) >= kFramePeriodMs) {
@@ -377,8 +542,24 @@ void sampleTask(void*) {
     }
 
     if (g_engine.live().lowSps && !g_lowSpsWarned) {
-      queueLine("# HX711 is running at 10 SPS, see docs: RATE pin", true);
+      queueLine("# HX711 sample rate is low, check the RATE pin and wiring",
+                true);
       g_lowSpsWarned = true;
+    }
+
+    if ((uint32_t)(now - lastRateCheckMs) >= 1000) {
+      lastRateCheckMs = now;
+      const uint8_t sps = g_engine.live().sps;
+      bool wantFast = fastFilter;
+      if (sps >= 1 && sps <= 20) {
+        wantFast = true;
+      } else if (sps > 30) {
+        wantFast = false;
+      }
+      if (wantFast != fastFilter) {
+        fastFilter = wantFast;
+        g_engine.setFastFilter(fastFilter);
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(1));
@@ -388,15 +569,25 @@ void sampleTask(void*) {
 } // namespace
 
 void setup() {
+  Serial.setTxBufferSize(1024);
   Serial.begin(115200);
 
   if (!storage::loadCalibration(g_cal)) {
     cpr::calibDefaults(g_cal);
   }
 
-  g_cfg = cpr::defaultConfig((cpr::Profile)g_cal.profile);
-  applyCalibrationBands();
+  cpr::userThDefaults(g_th);
+  if (isfinite(g_cal.goodMinKg) && isfinite(g_cal.deepMinKg) &&
+      g_cal.goodMinKg > 0.0f && g_cal.deepMinKg > 0.0f) {
+    cpr::UserTh oldBands = g_th;
+    oldBands.good = g_cal.goodMinKg;
+    oldBands.deep = g_cal.deepMinKg;
+    if (cpr::userThValid(oldBands)) g_th = oldBands;
+  }
+  cpr::UserTh savedTh;
+  if (storage::loadUserTh(savedTh)) g_th = savedTh;
 
+  applyUserTh();
   g_sensors.begin(g_cal.scaleFactor);
   g_engine.begin(g_cfg, g_cal);
   g_engine.setTofPresent(g_sensors.tofPresent());
@@ -419,8 +610,8 @@ void setup() {
 
   char cfgBuffer[kOutLineLength];
   if (cpr::jsonConfig(cfgBuffer, sizeof(cfgBuffer), g_cfg, g_cal,
-                      g_sensors.tofPresent(), "esp32",
-                      kFirmwareVersion) != 0) {
+                      g_sensors.tofPresent(), "esp32", kFirmwareVersion,
+                      g_sensors.hx711Present(), CPR_HAS_FOIL != 0) != 0) {
     net::setConfigLine(cfgBuffer);
   }
 

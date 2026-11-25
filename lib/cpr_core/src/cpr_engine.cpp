@@ -108,6 +108,11 @@ void Engine::setConfig(const Config& cfg) {
 
 void Engine::setCalibration(const CalibrationData& cal) { cal_ = cal; }
 
+void Engine::setFastFilter(bool on) {
+  valueFilter_.setMedian(!on);
+  kgFilter_.setMedian(!on);
+}
+
 void Engine::setMode(Mode m) {
   mode_ = m;
   training_.reset(m);

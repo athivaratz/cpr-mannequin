@@ -18,5 +18,10 @@
     "id": "test2min",
     "title": "ทดสอบ 2 นาที",
     "file": "test2min.jsonl"
+  },
+  {
+    "id": "kgonly_good",
+    "title": "กดถูกต้อง (เครื่องชั่ง)",
+    "file": "kgonly_good.jsonl"
   }
 ]

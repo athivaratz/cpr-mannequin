@@ -6,7 +6,7 @@ Run with the tools virtualenv:
     /home/box/.tools-venv/bin/python tools/screenshots.py
 
 Serves web/ with ``python3 -m http.server`` on a free port, then captures the
-desktop (1280x800) and phone (390x844) views.
+desktop (1280x800), phone (390x844) and landscape (844x390) views.
 """
 
 import os
@@ -121,33 +121,53 @@ def main():
                     viewport={"width": 390, "height": 844},
                     device_scale_factor=2,
                 )
+                landscape = browser.new_context(
+                    viewport={"width": 844, "height": 390},
+                    device_scale_factor=1,
+                )
                 for label, context in (("1280", desktop), ("390", phone)):
-                    scroll = ".counter-card" if label == "390" else None
+                    scroll = "#countTile" if label == "390" else None
                     capture(context, base, "01-practice-%s.png" % label,
-                            "?demo=good&seek=14", wait_ms=700)
+                            "?demo=good&seek=14&motion=freeze", wait_ms=700)
                     capture(context, base, "02-cycle-%s.png" % label,
-                            "?demo=cycle&seek=31.8", wait_ms=450,
+                            "?demo=cycle&seek=31.8&motion=freeze", wait_ms=450,
                             scroll_selector=scroll)
                     capture(context, base, "02b-breaths-%s.png" % label,
-                            "?demo=cycle&seek=38.2", wait_ms=650,
+                            "?demo=cycle&seek=38.2&motion=freeze", wait_ms=650,
                             scroll_selector=scroll)
                     capture(context, base, "03-summary-%s.png" % label,
-                            "?demo=test2min&seek=200&sheet=summary",
+                            "?demo=test2min&seek=200&sheet=summary&motion=freeze",
                             wait_selector="#sheetSummary:not([hidden])",
                             wait_ms=800)
                     capture(context, base, "04-calib-%s.png" % label,
-                            "?demo=good&seek=5&sheet=calib",
+                            "?demo=good&seek=5&sheet=calib&motion=freeze",
                             wait_selector="#sheetCalib:not([hidden])",
                             wait_ms=650)
                     capture(context, base, "05-shallow-%s.png" % label,
-                            "?demo=shallow&seek=5.0", wait_ms=300)
+                            "?demo=shallow&seek=5.0&motion=freeze", wait_ms=300)
                     capture(context, base, "07-connect-%s.png" % label,
-                            "?sheet=connect",
+                            "?sheet=connect&motion=freeze",
                             wait_selector="#sheetConnect:not([hidden])",
                             wait_ms=450)
+                    capture(context, base, "08-settings-%s.png" % label,
+                            "?demo=good&seek=5&sheet=settings&motion=freeze",
+                            wait_selector="#sheetSettings:not([hidden])",
+                            wait_ms=650)
+                    capture(context, base, "11-thresholds-%s.png" % label,
+                            "?demo=kgonly_good&seek=5&sheet=th&motion=freeze",
+                            wait_selector="#sheetTh:not([hidden])",
+                            wait_ms=650)
+
+                capture(phone, base, "09-info-390.png",
+                        "?demo=good&seek=14&sheet=info&info=score&motion=freeze",
+                        wait_selector="#sheetInfo:not([hidden])",
+                        wait_ms=650)
+
+                capture(landscape, base, "10-landscape-844.png",
+                        "?demo=good&seek=14&motion=freeze", wait_ms=700)
 
                 capture(desktop, base, "06-light-1280.png",
-                        "?demo=good&seek=14&theme=light", wait_ms=700)
+                        "?demo=good&seek=14&theme=light&motion=freeze", wait_ms=700)
             finally:
                 browser.close()
     finally:

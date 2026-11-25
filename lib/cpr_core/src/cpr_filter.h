@@ -10,6 +10,7 @@ class Filter {
   Filter();
   void reset();
   void setAlpha(float a);
+  void setMedian(bool on);
   float push(float x);
   float value() const;
 
@@ -19,6 +20,7 @@ class Filter {
   float value_;
   float alpha_;
   bool has_;
+  bool median_;
 };
 
 } // namespace cpr

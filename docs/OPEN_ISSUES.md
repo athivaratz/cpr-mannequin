@@ -34,13 +34,22 @@ These are engineering values, not clinical numbers:
   2 m, so this only filters bad I2C results.
 - Each blocking ToF read during boot and `tare` uses a 100 ms timeout. The
   measurement budget is 20 ms, so this is generous but bounded.
-- The HX711 tare averages 10 raw readings with a 1500 ms timeout
-  (`Sensors::tareLoadCell`). The library's own `tare()` default is also 10
-  readings; the timeout is ours so a dead sensor cannot hang the task.
+- The HX711 start-up waits up to 3000 ms for `is_ready()`, then discards four
+  conversions and tares with a stability check (two averages of 8 raw readings;
+  accept when their difference is at most `max(200 counts, |scale|*0.05)`).
+  `Sensors::service()` does the same recovery one conversion per call, so it
+  never blocks the sensor task. At the stock 10 SPS rate a full tare needs
+  about 1.6 s; `begin()` allows up to 3 s for retries. `Sensors::tareLoadCell()`
+  uses the same routine with a 1500 ms budget.
+- Once a tare has succeeded, a loss and recovery only discards four conversions
+  and keeps the existing offset instead of taring again, so a load already on
+  the plate (after `cal weight` or a loss while someone is pressing) is not
+  zeroed. Only a sensor that has never tared runs the stable-tare steps during
+  recovery.
 
-All are tunable. Boot readiness (2 s), the 20-reading `cal weight` average (3 s),
-the 10-sample ToF rest average, the 20 Hz frame period, and the buzzer durations
-come from DESIGN.md.
+All are tunable. Boot readiness (3 s), the 20-reading `cal weight` average
+(3 s), the 10-sample ToF rest average, the 20 Hz frame period, and the buzzer
+durations come from DESIGN.md or the H1 phase brief.
 
 ## P3 Nano flash: VL53L0X does not fit
 
@@ -86,3 +95,49 @@ and line buffers are `kMaxJsonLine + 8` (288 bytes); the single Nano line
 buffer is `kMaxJsonLine + 1` (281 bytes). The Nano static RAM is still under
 the 1500-byte target. Protocol consumers should read with a 288-byte buffer.
 DESIGN.md was not edited, as the review required.
+
+## H1 kg-only demo at 10 SPS
+
+`recordings/kgonly_good.jsonl` is generated at 10 SPS with no ToF because that
+is what the final board runs. With the old thresholds and filter about 40% of
+the peaks came out shallow and no recoil was counted; H2 fixed both (see
+below), and `make_recordings.sh` checks depth and recoil at 0.80 again.
+
+## H2 user thresholds and the 10 SPS recoil result
+
+The kg thresholds are now user-tunable on the ESP32 and stored in Preferences.
+The defaults (contact 0.5 kg, recoil 0.2 kg, good 6 kg, deep 12 kg, overload
+18 kg, filter alpha 1.0) and the accepted ranges are engineering values for the
+rubber-band damper, not clinical numbers. They are tunable for each build.
+
+`recordings/kgonly_good.jsonl` uses `--esp32`, so it runs with these defaults
+and the median switched off (the ESP32 does that by itself below 20 samples/s).
+With filter alpha 0.7 recoil came out 0/73: at 10 SPS the trough between two
+presses is only one or two samples, and the EMA lag kept the value above the
+release line, so the press ended through the leaning re-rise path with
+`recoilOk = false`. With alpha 1.0 (raw value, no smoothing) the same recording
+gives 73/73 recoil and 73/73 depth, while `norecoil` still scores 0 recoil, so
+the check still tells the two apart. That's why the default is 1.0. The
+simulator waveform has no rubber bands, so the real mannequin still needs a
+check on hardware.
+
+## H4 junk-on-RX explanation is unproven on hardware
+
+The "old firmware could stall on USB-chip noise when no computer was listening"
+explanation behind the `หน้าเว็บค้างที่ 0` section and the `diag` `rxBad` value
+is the best fit for the symptom, but it has not been checked on a real charger-only
+board yet. Read the diag line on actual hardware before treating it as settled.
+
+## H4 threshold defaults are guesses for the damper build
+
+The default user thresholds (contact 0.5 kg, recoil 0.2 kg, good 6 kg,
+deep 12 kg, overload 18 kg, filter 1.0) were chosen for the rubber-band damper.
+They are engineering values, not measurements from a finished mannequin. Each
+build should tune them with `docs/calibration.md` after the bands settle.
+
+## H4 recoil at 120/min with 10 SPS
+
+Fast presses around 120/min can still show `ยังค้าง` with a stock 10 SPS HX711,
+because there may be only one or two samples in the trough. Raising the recoil
+line a little or setting ความไว to ไว helps. If that is not enough, the RATE pin
+mod for 80 SPS is still the reliable fix.

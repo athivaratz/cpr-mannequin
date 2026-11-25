@@ -117,6 +117,139 @@ void test_filter() {
   TEST_ASSERT_EQUAL_FLOAT(before, spike.value());
 }
 
+void test_filter_median_off() {
+  cpr::Filter median;
+  median.setAlpha(0.5f);
+  median.push(0.0f);
+  median.push(0.0f);
+  median.push(0.0f);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, median.push(100.0f));
+
+  cpr::Filter fast;
+  fast.setAlpha(0.5f);
+  fast.setMedian(false);
+  fast.push(0.0f);
+  fast.push(0.0f);
+  fast.push(0.0f);
+  TEST_ASSERT_EQUAL_FLOAT(50.0f, fast.push(100.0f));
+
+  fast.setMedian(true);
+  fast.push(100.0f);
+  fast.push(100.0f);
+  fast.push(100.0f);
+  TEST_ASSERT_TRUE(fast.value() > 50.0f);
+  TEST_ASSERT_TRUE(fast.value() <= 100.0f);
+}
+
+void test_settings_defaults() {
+  cpr::UserTh t;
+  cpr::userThDefaults(t);
+  TEST_ASSERT_TRUE(cpr::userThValid(t));
+  TEST_ASSERT_EQUAL_FLOAT(6.0f, t.good);
+  TEST_ASSERT_EQUAL_FLOAT(12.0f, t.deep);
+  TEST_ASSERT_EQUAL_FLOAT(18.0f, t.over);
+  TEST_ASSERT_EQUAL_FLOAT(0.5f, t.contact);
+  TEST_ASSERT_EQUAL_FLOAT(0.2f, t.recoil);
+  TEST_ASSERT_EQUAL_FLOAT(1.0f, t.filt);
+}
+
+void test_settings_ranges() {
+  cpr::UserTh base;
+  cpr::userThDefaults(base);
+
+  cpr::UserTh t = base;
+  t.recoil = -0.01f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.recoil = t.contact;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.contact = 0.09f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.contact = 10.1f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.good = t.contact;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.good = 0.49f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.deep = t.good;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.over = t.deep;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.over = 60.1f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.filt = 0.19f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.filt = 1.01f;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.good = NAN;
+  TEST_ASSERT_FALSE(cpr::userThValid(t));
+
+  t = base;
+  t.recoil = 0.0f;
+  t.contact = 0.1f;
+  t.good = 0.5f;
+  t.deep = 0.6f;
+  t.over = 60.0f;
+  t.filt = 0.2f;
+  TEST_ASSERT_TRUE(cpr::userThValid(t));
+
+  t.filt = 1.0f;
+  TEST_ASSERT_TRUE(cpr::userThValid(t));
+}
+
+void test_settings_apply() {
+  cpr::UserTh t;
+  cpr::userThDefaults(t);
+  t.good = 5.5f;
+  t.deep = 11.0f;
+  t.over = 17.0f;
+  t.contact = 0.4f;
+  t.recoil = 0.1f;
+  t.filt = 0.6f;
+
+  TEST_ASSERT_TRUE(cpr::userThValid(t));
+  const float release = cpr::userThRelease(t);
+  TEST_ASSERT_TRUE(release > t.recoil);
+  TEST_ASSERT_TRUE(release < t.contact);
+
+  cpr::Config cfg = cpr::defaultConfig(cpr::Profile::Adult);
+  cpr::userThApply(t, cfg);
+  TEST_ASSERT_EQUAL_FLOAT(t.good, cfg.th.goodMinKg);
+  TEST_ASSERT_EQUAL_FLOAT(t.deep, cfg.th.deepMinKg);
+  TEST_ASSERT_EQUAL_FLOAT(t.over, cfg.th.overloadKg);
+  TEST_ASSERT_EQUAL_FLOAT(t.contact, cfg.th.contactKg);
+  TEST_ASSERT_EQUAL_FLOAT(t.recoil, cfg.th.recoilKg);
+  TEST_ASSERT_EQUAL_FLOAT(release, cfg.th.releaseKg);
+  TEST_ASSERT_EQUAL_FLOAT(t.filt, cfg.filterAlpha);
+  TEST_ASSERT_EQUAL_FLOAT(0.4f, cfg.th.restartDeltaKg);
+
+  t.contact = 0.2f;
+  t.recoil = 0.05f;
+  cpr::userThApply(t, cfg);
+  TEST_ASSERT_EQUAL_FLOAT(0.3f, cfg.th.restartDeltaKg);
+}
+
 void test_detector_clean_press() {
   cpr::Detector d;
   d.setThresholds(10.0f, 6.0f, 5.0f, 8.0f, 0.15f, 2000);
@@ -382,10 +515,13 @@ void test_test2min() {
 }
 
 void test_low_sps() {
-  RunOut out = runScenario(cprsim::Scenario::Good, 6, 10, true);
-  TEST_ASSERT_TRUE(out.live.sps <= 15);
-  TEST_ASSERT_TRUE(out.live.lowSps);
-  TEST_ASSERT_TRUE(out.live.sps >= 9);
+  RunOut slow = runScenario(cprsim::Scenario::Good, 6, 5, true);
+  TEST_ASSERT_TRUE(slow.live.sps <= 8);
+  TEST_ASSERT_TRUE(slow.live.lowSps);
+  TEST_ASSERT_TRUE(slow.live.sps >= 4);
+
+  RunOut stock = runScenario(cprsim::Scenario::Good, 6, 10, true);
+  TEST_ASSERT_FALSE(stock.live.lowSps);
 }
 
 void test_metronome() {
@@ -668,9 +804,10 @@ void test_json() {
   TEST_ASSERT_TRUE(len > 0);
   TEST_ASSERT_EQUAL_STRING(
       "{\"ty\":\"cfg\",\"board\":\"esp32\",\"fw\":\"1.0.0\",\"prof\":0,"
-      "\"tof\":0,\"src\":0,\"unit\":\"kg\",\"gmin\":50,\"dmin\":60,"
-      "\"gkg\":6.0,\"dkg\":12.0,\"ovkg\":18.0,\"rmin\":100,\"rmax\":120,"
-      "\"map\":0,\"metro\":110}",
+      "\"tof\":0,\"hx\":1,\"hand\":1,\"src\":0,\"unit\":\"kg\",\"gmin\":50,"
+      "\"dmin\":60,\"gkg\":6.0,\"dkg\":12.0,\"ovkg\":18.0,\"ckg\":1.5,"
+      "\"rkg\":0.5,\"flt\":0.50,\"rmin\":100,"
+      "\"rmax\":120,\"map\":0,\"metro\":110}",
       buf);
 
   len = cpr::jsonAck(buf, sizeof(buf), "tare", true, "ok");
@@ -695,6 +832,26 @@ void test_json() {
 
   char tiny[8];
   TEST_ASSERT_EQUAL_UINT32(0, cpr::jsonFrame(tiny, sizeof(tiny), s));
+}
+
+void test_json_config_extra() {
+  char buf[cpr::kMaxJsonLine + 32];
+  cpr::Config cfg = cpr::defaultConfig(cpr::Profile::Adult);
+  cpr::CalibrationData cal;
+  cpr::calibDefaults(cal);
+
+  size_t len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, false, "esp32",
+                               "1.0.0", false, false);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hx\":0"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hand\":0"));
+
+  len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, false, "esp32",
+                        "1.0.0", true, true);
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hx\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"hand\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"tof\":0,\"hx\":1,\"hand\":1,\"src\":0"));
 }
 
 void test_json_worst_case() {
@@ -827,6 +984,48 @@ void test_json_worst_case() {
   TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
 }
 
+void test_json_config_worst_case() {
+  char buf[cpr::kMaxJsonLine + 32];
+
+  cpr::Config cfg = cpr::defaultConfig(cpr::Profile::Child);
+
+  // Widest valid user thresholds: the bands, contact and recoil are near the
+  // top of their ranges and the filter is at 1.00.
+  cpr::UserTh th;
+  th.good = 59.0f;
+  th.deep = 59.5f;
+  th.over = 60.0f;
+  th.contact = 10.0f;
+  th.recoil = 9.9f;
+  th.filt = 1.0f;
+  TEST_ASSERT_TRUE(cpr::userThValid(th));
+  cpr::userThApply(th, cfg);
+
+  cfg.profile = (cpr::Profile)255;
+  cfg.th.goodMinMm = 999.9f;
+  cfg.th.deepMinMm = 999.9f;
+  cfg.th.rateMin = 65535;
+  cfg.th.rateMax = 65535;
+  cfg.metronomeBpm = 65535;
+
+  cpr::CalibrationData cal;
+  cpr::calibDefaults(cal);
+  cal.mapCount = 255;
+
+  size_t len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, true, "esp32",
+                               "1.0.0");
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"ckg\":10.0"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"rkg\":9.9"));
+  TEST_ASSERT_NOT_NULL(strstr(buf, "\"flt\":1.00"));
+
+  len = cpr::jsonConfig(buf, sizeof(buf), cfg, cal, false, "esp32",
+                        "1.0.0");
+  TEST_ASSERT_TRUE(len > 0);
+  TEST_ASSERT_TRUE(len <= cpr::kMaxJsonLine);
+}
+
 void test_size() {
   size_t engine = sizeof(cpr::Engine);
   size_t recorder = sizeof(cpr::CalRecorder);
@@ -860,6 +1059,10 @@ void test_score() {
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_filter);
+  RUN_TEST(test_filter_median_off);
+  RUN_TEST(test_settings_defaults);
+  RUN_TEST(test_settings_ranges);
+  RUN_TEST(test_settings_apply);
   RUN_TEST(test_detector_clean_press);
   RUN_TEST(test_detector_hysteresis_plateau);
   RUN_TEST(test_detector_leaning_restart);
@@ -883,7 +1086,9 @@ int main(int, char**) {
   RUN_TEST(test_calibration_map_interp);
   RUN_TEST(test_command_parser);
   RUN_TEST(test_json);
+  RUN_TEST(test_json_config_extra);
   RUN_TEST(test_json_worst_case);
+  RUN_TEST(test_json_config_worst_case);
   RUN_TEST(test_size);
   RUN_TEST(test_score);
   return UNITY_END();

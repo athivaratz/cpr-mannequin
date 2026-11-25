@@ -8,10 +8,15 @@
 #include <string.h>
 
 #include "web_assets.h"
+#include "cpr_command.h"
 #include "cpr_json.h"
 
 #ifndef CPR_CAPTIVE_DNS
 #define CPR_CAPTIVE_DNS 1
+#endif
+
+#ifndef CPR_SERIAL_STREAM_DEFAULT
+#define CPR_SERIAL_STREAM_DEFAULT 1
 #endif
 
 namespace {
@@ -23,6 +28,10 @@ constexpr uint16_t kMaxWsClients = 4;
 constexpr size_t kOutLineLen = cpr::kMaxJsonLine + 8;
 constexpr size_t kCmdLineLen = 64;
 constexpr const char* kDefaultWifiPass = "cprtrain123";
+constexpr uint32_t kFramePeriodMs = 50;
+constexpr uint32_t kDiagPeriodMs = 5000;
+constexpr uint32_t kRxWindowMs = 1000;
+constexpr uint16_t kRxLinesPerWindow = 20;
 
 AsyncWebServer g_server(kHttpPort);
 AsyncWebSocket g_ws("/ws");
@@ -33,6 +42,24 @@ QueueHandle_t g_cmdQueue = nullptr;
 
 char g_configLine[kOutLineLen];
 portMUX_TYPE g_configMux = portMUX_INITIALIZER_UNLOCKED;
+
+char g_frameLine[kOutLineLen];
+portMUX_TYPE g_frameMux = portMUX_INITIALIZER_UNLOCKED;
+bool g_frameFresh = false;
+
+bool g_serialStreaming = (CPR_SERIAL_STREAM_DEFAULT != 0);
+
+// Each counter has a single writer task; volatile is enough for a snapshot.
+volatile uint32_t g_rxCount = 0;
+volatile uint32_t g_rxBad = 0;
+volatile uint32_t g_qDrop = 0;
+volatile uint32_t g_sSkip = 0;
+volatile uint32_t g_fDrop = 0;
+volatile uint8_t g_diagSps = 0;
+volatile bool g_diagHx = false;
+
+uint32_t g_rxWindowStart = 0;
+uint16_t g_rxWindowCount = 0;
 
 const WebAsset* findAsset(const char* path) {
   for (size_t i = 0; i < kWebAssetCount; ++i) {
@@ -150,26 +177,110 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
   messageLen = 0;
 }
 
+char* trimLine(char* text) {
+  while (*text == ' ' || *text == '\t') text++;
+  size_t len = strlen(text);
+  while (len > 0) {
+    const char c = text[len - 1];
+    if (c != ' ' && c != '\t') break;
+    text[--len] = '\0';
+  }
+  return text;
+}
+
+bool equalsIgnoreCase(const char* a, const char* b) {
+  while (*a && *b) {
+    char ca = *a++;
+    char cb = *b++;
+    if (ca >= 'A' && ca <= 'Z') ca = (char)(ca - 'A' + 'a');
+    if (cb >= 'A' && cb <= 'Z') cb = (char)(cb - 'A' + 'a');
+    if (ca != cb) return false;
+  }
+  return *a == '\0' && *b == '\0';
+}
+
+bool forwardSerialLine(const char* line) {
+  const uint32_t now = millis();
+  if ((uint32_t)(now - g_rxWindowStart) >= kRxWindowMs) {
+    g_rxWindowStart = now;
+    g_rxWindowCount = 0;
+  }
+  if (g_rxWindowCount >= kRxLinesPerWindow) {
+    g_rxBad++;
+    return false;
+  }
+  if (g_cmdQueue == nullptr) return false;
+  g_rxWindowCount++;
+  if (xQueueSend(g_cmdQueue, line, 0) != pdTRUE) {
+    g_rxBad++;
+    return false;
+  }
+  return true;
+}
+
+void handleSerialLine(char* text) {
+  char* line = trimLine(text);
+  if (*line == '\0') return;
+
+  if (equalsIgnoreCase(line, "serial on") ||
+      equalsIgnoreCase(line, "serial off")) {
+    const bool on = equalsIgnoreCase(line, "serial on");
+    net::setSerialStreaming(on);
+    Serial.println(on
+        ? "{\"ty\":\"ack\",\"cmd\":\"serial\",\"ok\":1,\"msg\":\"on\"}"
+        : "{\"ty\":\"ack\",\"cmd\":\"serial\",\"ok\":1,\"msg\":\"off\"}");
+    return;
+  }
+
+  cpr::Command command;
+  const bool parsed = cpr::parseCommand(line, command);
+  if (parsed) {
+    net::setSerialStreaming(true);
+    forwardSerialLine(line);
+    return;
+  }
+
+  if (g_serialStreaming) {
+    forwardSerialLine(line);
+  } else {
+    g_rxBad++;
+  }
+}
+
 void drainSerial() {
   static char line[kCmdLineLen];
   static size_t length = 0;
+  static bool bad = false;
 
   while (Serial.available() > 0) {
     const int value = Serial.read();
     if (value < 0) break;
+    g_rxCount++;
     const char c = (char)value;
 
     if (c == '\n' || c == '\r') {
-      if (length > 0) {
+      if (length > 0 || bad) {
         line[length] = '\0';
-        if (g_cmdQueue != nullptr) xQueueSend(g_cmdQueue, line, 0);
-        length = 0;
+        if (bad) {
+          g_rxBad++;
+        } else {
+          handleSerialLine(line);
+        }
       }
-    } else if (length < sizeof(line) - 1) {
-      line[length++] = c;
-    } else {
       length = 0;
+      bad = false;
+      continue;
     }
+
+    if (c < 0x20 || c > 0x7E) {
+      bad = true;
+      continue;
+    }
+    if (length >= sizeof(line) - 1) {
+      bad = true;
+      continue;
+    }
+    line[length++] = c;
   }
 }
 
@@ -179,9 +290,72 @@ void drainOutput() {
   char line[kOutLineLen];
   while (xQueueReceive(g_outQueue, line, 0) == pdTRUE) {
     line[kOutLineLen - 1] = '\0';
-    Serial.println(line);
     g_ws.textAll(line);
+
+    if (g_serialStreaming) {
+      const size_t len = strlen(line);
+      if (Serial.availableForWrite() >= (int)(len + 2)) {
+        Serial.println(line);
+      } else {
+        g_sSkip++;
+      }
+    }
   }
+}
+
+void sendLatestFrame(uint32_t now) {
+  static uint32_t lastFrameMs = 0;
+
+  bool fresh = false;
+  portENTER_CRITICAL(&g_frameMux);
+  fresh = g_frameFresh;
+  portEXIT_CRITICAL(&g_frameMux);
+  if (!fresh) return;
+  if ((uint32_t)(now - lastFrameMs) < kFramePeriodMs) return;
+
+  char line[kOutLineLen];
+  portENTER_CRITICAL(&g_frameMux);
+  size_t length = strnlen(g_frameLine, sizeof(line) - 1);
+  memcpy(line, g_frameLine, length + 1);
+  line[length] = '\0';
+  g_frameFresh = false;
+  portEXIT_CRITICAL(&g_frameMux);
+  lastFrameMs = now;
+
+  if (g_ws.count() > 0) {
+    if (g_ws.availableForWriteAll()) {
+      g_ws.textAll(line);
+    } else {
+      g_fDrop++;
+    }
+  }
+
+  if (g_serialStreaming) {
+    const size_t len = strlen(line);
+    if (Serial.availableForWrite() >= (int)(len + 2)) {
+      Serial.println(line);
+    } else {
+      g_sSkip++;
+    }
+  }
+}
+
+void sendDiag(uint32_t now) {
+  if (g_ws.count() == 0) return;
+
+  char buffer[192];
+  const int written = snprintf(
+      buffer, sizeof(buffer),
+      "{\"ty\":\"diag\",\"up\":%lu,\"rx\":%lu,\"rxBad\":%lu,\"qDrop\":%lu,"
+      "\"sSkip\":%lu,\"fDrop\":%lu,\"sps\":%u,\"heap\":%lu,\"ser\":%d,"
+      "\"hx\":%d}",
+      (unsigned long)(now / 1000UL), (unsigned long)g_rxCount,
+      (unsigned long)g_rxBad, (unsigned long)g_qDrop, (unsigned long)g_sSkip,
+      (unsigned long)g_fDrop, (unsigned)g_diagSps,
+      (unsigned long)ESP.getFreeHeap(), g_serialStreaming ? 1 : 0,
+      g_diagHx ? 1 : 0);
+  if (written <= 0 || (size_t)written >= sizeof(buffer)) return;
+  g_ws.textAll(buffer);
 }
 
 } // namespace
@@ -230,11 +404,19 @@ void loop() {
   drainSerial();
   drainOutput();
 
-  static uint32_t lastCleanupMs = 0;
   const uint32_t now = millis();
+  sendLatestFrame(now);
+
+  static uint32_t lastCleanupMs = 0;
   if ((uint32_t)(now - lastCleanupMs) >= 1000) {
     g_ws.cleanupClients(kMaxWsClients);
     lastCleanupMs = now;
+  }
+
+  static uint32_t lastDiagMs = 0;
+  if ((uint32_t)(now - lastDiagMs) >= kDiagPeriodMs) {
+    sendDiag(now);
+    lastDiagMs = now;
   }
 }
 
@@ -244,5 +426,24 @@ void setConfigLine(const char* line) {
   g_configLine[sizeof(g_configLine) - 1] = '\0';
   portEXIT_CRITICAL(&g_configMux);
 }
+
+void setFrame(const char* line) {
+  portENTER_CRITICAL(&g_frameMux);
+  strncpy(g_frameLine, line != nullptr ? line : "", sizeof(g_frameLine) - 1);
+  g_frameLine[sizeof(g_frameLine) - 1] = '\0';
+  g_frameFresh = true;
+  portEXIT_CRITICAL(&g_frameMux);
+}
+
+void setDiagSensor(uint8_t sps, bool hxPresent) {
+  g_diagSps = sps;
+  g_diagHx = hxPresent;
+}
+
+void noteQueueDrop() { g_qDrop++; }
+
+bool serialStreaming() { return g_serialStreaming; }
+
+void setSerialStreaming(bool on) { g_serialStreaming = on; }
 
 } // namespace net

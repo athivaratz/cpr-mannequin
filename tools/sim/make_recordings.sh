@@ -27,12 +27,12 @@ run --scenario cycle     --seconds 90 --sps 80 --mode cycle --out recordings/cyc
 
 # Extras used by the dashboard and the dev server.
 run --scenario good --seconds 125 --sps 80 --mode test --out recordings/test2min.jsonl
-run --scenario good --seconds 40  --sps 80 --no-tof          --out recordings/kgonly_good.jsonl
+run --scenario good --seconds 40  --sps 10 --no-tof --esp32  --out recordings/kgonly_good.jsonl
 run --scenario good --seconds 40  --sps 10                   --out recordings/lowsps_good.jsonl
 
 rm -f web/demo/*.jsonl
 cp recordings/good.jsonl recordings/shallow.jsonl recordings/cycle.jsonl \
-   recordings/test2min.jsonl web/demo/
+   recordings/test2min.jsonl recordings/kgonly_good.jsonl web/demo/
 
 python3 - <<'PY'
 import json
@@ -54,7 +54,7 @@ TITLES = {
     "noisy": "สัญญาณมีเสียงรบกวน",
     "cycle": "รอบ 30:2",
     "test2min": "ทดสอบ 2 นาที",
-    "kgonly_good": "กดถูกต้อง (โหลดเซลล์)",
+    "kgonly_good": "กดถูกต้อง (เครื่องชั่ง)",
     "lowsps_good": "กดถูกต้อง (10 SPS)",
 }
 
@@ -62,7 +62,7 @@ ORDER = ["good", "shallow", "deep", "fast", "slow", "norecoil",
          "wronghand", "noisy", "cycle", "test2min", "kgonly_good",
          "lowsps_good"]
 
-DEMO = ["good", "shallow", "cycle", "test2min"]
+DEMO = ["good", "shallow", "cycle", "test2min", "kgonly_good"]
 
 entries = [{"id": name, "title": TITLES[name], "file": name + ".jsonl"}
            for name in ORDER]
@@ -128,8 +128,10 @@ s = sums["test2min"]
 check("test2min", s["mode"] == 2 and 118 <= s["dur"] <= 121 and s["n"] > 0,
       "mode %d dur %d n %d" % (s["mode"], s["dur"], s["n"]))
 s = sums["kgonly_good"]
-check("kgonly_good", ratio(s["dg"], s["n"]) >= 0.80,
-      "dg/n %.2f" % ratio(s["dg"], s["n"]))
+# Recorded at 10 SPS with the ESP32 settings (no median, no smoothing), like
+# the real board with a stock HX711.
+check("kgonly_good", ratio(s["dg"], s["n"]) >= 0.80 and ratio(s["rc"], s["n"]) >= 0.80,
+      "dg/n %.2f rc/n %.2f" % (ratio(s["dg"], s["n"]), ratio(s["rc"], s["n"])))
 s = sums["lowsps_good"]
 check("lowsps_good", last_sps["lowsps_good"] <= 15 and s["n"] > 0,
       "last sps %d n %d" % (last_sps["lowsps_good"], s["n"]))

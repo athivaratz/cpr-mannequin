@@ -1,4 +1,4 @@
-{"ty":"cfg","board":"sim","fw":"1.0.0","prof":1,"tof":1,"src":2,"unit":"mm","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,"rmin":100,"rmax":120,"map":0,"metro":110}
+{"ty":"cfg","board":"sim","fw":"1.0.0","prof":1,"tof":1,"hx":1,"hand":1,"src":2,"unit":"mm","gmin":50,"dmin":60,"gkg":6.0,"dkg":12.0,"ovkg":18.0,"ckg":1.5,"rkg":0.5,"flt":0.50,"rmin":100,"rmax":120,"map":0,"metro":110}
 {"ty":"f","t":0,"v":0.0,"kg":0.0,"mm":0,"src":2,"ph":0,"ld":0,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":0,"el":0}
 {"ty":"f","t":50,"v":1.3,"kg":0.2,"mm":3,"src":2,"ph":0,"ld":0,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":0,"el":0}
 {"ty":"f","t":100,"v":7.1,"kg":1.1,"mm":12,"src":2,"ph":0,"ld":0,"bpm":0,"rl":0,"hand":1,"ov":0,"ps":0,"n":0,"cc":0,"cy":0,"sps":0,"lsps":0,"act":0,"el":0}

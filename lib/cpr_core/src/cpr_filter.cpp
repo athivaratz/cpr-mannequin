@@ -15,6 +15,7 @@ void Filter::reset() {
   value_ = 0.0f;
   alpha_ = 0.5f;
   has_ = false;
+  median_ = true;
 }
 
 void Filter::setAlpha(float a) {
@@ -23,8 +24,28 @@ void Filter::setAlpha(float a) {
   alpha_ = a;
 }
 
+void Filter::setMedian(bool on) {
+  if (median_ == on) return;
+  median_ = on;
+  // Clear the median buffer so switching back does not use stale samples.
+  buf_[0] = 0.0f;
+  buf_[1] = 0.0f;
+  buf_[2] = 0.0f;
+  count_ = 0;
+}
+
 float Filter::push(float x) {
   if (isnan(x)) return value_;
+
+  if (!median_) {
+    if (!has_) {
+      value_ = x;
+      has_ = true;
+    } else {
+      value_ = alpha_ * x + (1.0f - alpha_) * value_;
+    }
+    return value_;
+  }
 
   if (count_ < 3) {
     buf_[count_++] = x;
