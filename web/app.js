@@ -644,7 +644,7 @@
         if (!chosen) chosen = list[0] || { id: this.id, file: this.id + '.jsonl', title: this.id };
         this.id = chosen.id;
         const response = await fetch('demo/' + chosen.file, { cache: 'no-store' });
-        if (!response.ok) throw new Error('โหลดไฟล์เดโมไม่สำเร็จ');
+        if (!response.ok) throw new Error('โหลดเดโมไม่ได้');
         const text = await response.text();
         this.messages = parseRecording(text);
         if (!this.messages.length) throw new Error('ไฟล์เดโมว่าง');
@@ -665,7 +665,7 @@
       } catch (err) {
         this.stopped = true;
         this.onStatus && this.onStatus('off', { error: err.message });
-        this.onError && this.onError(err.message || 'เปิดโหมดเดโมไม่สำเร็จ');
+        this.onError && this.onError(err.message || 'เปิดเดโมไม่ได้');
       }
     }
 
@@ -991,7 +991,7 @@
       } catch (err) {
         this.stopped = true;
         this.onStatus && this.onStatus('off', { error: err.message });
-        this.onError && this.onError('เชื่อมต่อสาย USB ไม่สำเร็จ');
+        this.onError && this.onError('ต่อสาย USB ไม่ได้');
         try { if (this.port) await this.port.close(); } catch (e) { /* ignore */ }
         this.port = null;
       }
@@ -1084,7 +1084,7 @@
     transport.onInstantDone = () => completeInstant();
     transport.onError = (message) => showToast(message, 'bad');
     Promise.resolve(transport.connect()).catch((err) => {
-      showToast(err && err.message ? err.message : 'เชื่อมต่อไม่สำเร็จ', 'bad');
+      showToast(err && err.message ? err.message : 'ต่อไม่ได้', 'bad');
     });
   }
 
@@ -1301,7 +1301,7 @@
     if (thHandleAck(msg)) return;
     if (calHandleAck(msg)) return;
     if (!msg.ok) {
-      showToast(msg.msg || 'คำสั่งไม่สำเร็จ', 'bad');
+      showToast(msg.msg || 'สั่งหุ่นไม่ได้', 'bad');
     }
   }
 
@@ -1488,7 +1488,7 @@
     state.transport.send('stop');
     clearTimeout(state.stopTimer);
     state.stopTimer = setTimeout(() => {
-      if (state.sumSeq === seq) showToast('ยังไม่ได้รับผลสรุปจากหุ่น', 'warn');
+      if (state.sumSeq === seq) showToast('หุ่นยังไม่ส่งผลมา', 'warn');
     }, 1800);
   }
 
@@ -2211,18 +2211,18 @@
     depth: {
       title: 'ความลึก',
       icon: 'ruler',
-      body: () => '<p>เด็กให้กดลึกราว 5 ซม. หรือประมาณหนึ่งในสามของความหนาหน้าอก และไม่เกิน 6 ซม. ผู้ใหญ่ 5–6 ซม.</p>' +
+      body: () => '<p>เด็กกดลึกราว 5 ซม. (ประมาณ 1 ใน 3 ของความหนาหน้าอก) แต่ไม่เกิน 6 ซม. ผู้ใหญ่ 5–6 ซม.</p>' +
         '<p class="muted">อ้างอิงแนวทาง AHA ปี 2025</p>'
     },
     rate: {
       title: 'จังหวะ',
       icon: 'activity',
-      body: () => '<p>กด 100–120 ครั้งต่อนาที ถ้าจับจังหวะยาก เปิดเสียงจังหวะ 110 ที่ปุ่มโน้ตด้านบน</p>'
+      body: () => '<p>กด 100–120 ครั้งต่อนาที ถ้าจับจังหวะยาก ให้เปิดเสียงจังหวะ 110 ที่ปุ่มโน้ตด้านบน</p>'
     },
     recoil: {
       title: 'คืนตัว',
       icon: 'arrow-up-from-line',
-      body: () => '<p>ยกมือให้หน้าอกกลับขึ้นสุดทุกครั้ง อย่าทิ้งน้ำหนักค้างไว้ เลือดจะได้ไหลกลับเข้าหัวใจ</p>'
+      body: () => '<p>ยกมือให้หน้าอกกลับขึ้นสุดทุกครั้ง อย่ากดค้างไว้ เลือดจะได้ไหลกลับเข้าหัวใจ</p>'
     },
     hand: {
       title: 'ตำแหน่งมือ',
@@ -2239,12 +2239,12 @@
     ccf: {
       title: 'ต่อเนื่อง',
       icon: 'clock',
-      body: () => '<p>ต่อเนื่อง คือสัดส่วนเวลาที่ยังกดอยู่ ควรได้อย่างน้อย 60% และหยุดแต่ละครั้งไม่เกิน 10 วินาที</p>'
+      body: () => '<p>ต่อเนื่อง คือสัดส่วนเวลาที่กดอยู่จริง ควรได้ 60% ขึ้นไป และหยุดแต่ละครั้งไม่เกิน 10 วินาที</p>'
     },
     sps: {
       title: 'เซนเซอร์อ่านช้า',
       icon: 'triangle-alert',
-      body: () => '<p>10 ครั้งต่อวินาทีเป็นค่าปกติของบอร์ด HX711 ทั่วไป ถ้าอยากให้จับการคืนตัวได้ไวขึ้น ย้ายขา RATE ไปต่อไฟเลี้ยงจะอ่านได้ 80 ครั้งต่อวินาที</p>'
+      body: () => '<p>10 ครั้งต่อวินาทีเป็นค่าปกติของบอร์ด HX711 ทั่วไป ถ้าอยากให้จับการคืนตัวไวขึ้น ย้ายขา RATE ไปต่อไฟเลี้ยง จะอ่านได้ 80 ครั้งต่อวินาที</p>'
     },
     score: {
       title: 'คะแนนมาจากไหน',
@@ -2274,8 +2274,8 @@
     });
     return '<div class="score-bar">' + bar + '</div>' +
       '<div class="score-legend">' + legend + '</div>' +
-      '<p>ต่อเนื่อง คือสัดส่วนเวลาที่ยังกดอยู่ ควรได้อย่างน้อย 60% และหยุดแต่ละครั้งไม่เกิน 10 วินาที</p>' +
-      '<p class="muted">น้ำหนักคะแนนทีมตั้งเอง ไม่ใช่เกณฑ์ทางการ</p>';
+      '<p>ต่อเนื่อง คือสัดส่วนเวลาที่กดอยู่จริง ควรได้ 60% ขึ้นไป และหยุดแต่ละครั้งไม่เกิน 10 วินาที</p>' +
+      '<p class="muted">สัดส่วนคะแนนทีมตั้งเอง ไม่ใช่เกณฑ์ทางการ</p>';
   }
 
   function diagSummary() {
@@ -2293,8 +2293,8 @@
     const dropped = (has(diag.qDrop) ? diag.qDrop : 0) +
       (has(diag.fDrop) ? diag.fDrop : 0);
 
-    return 'ระบบ · ขึ้นมา ' + upText + ' · อ่าน ' + sps + '/วิ · สายUSB ' +
-      usb + ' · ขยะ ' + bad + ' · ตกหล่น ' + dropped;
+    return 'ระบบ · เปิดมา ' + upText + ' · อ่าน ' + sps + '/วิ · สาย USB ' +
+      usb + ' · ข้อมูลเสีย ' + bad + ' · หลุด ' + dropped;
   }
 
   function aboutBody() {
@@ -2385,8 +2385,8 @@
     let panel = '';
     if (cal.saved) {
       panel = '<div class="calib-success">' + calBadge('circle-check', 'ok') +
-        '<h3>เรียบร้อย</h3></div>';
-      calActions('<button type="button" class="btn btn-primary" data-cal-action="close">เสร็จสิ้น</button>');
+        '<h3>เสร็จแล้ว</h3></div>';
+      calActions('<button type="button" class="btn btn-primary" data-cal-action="close">ปิด</button>');
     } else if (cal.step === 1) {
       panel = calBadge('target') +
         '<h3>ยกมือออกจากหุ่น</h3>' +
@@ -2459,7 +2459,7 @@
     if (msg.ok) {
       if (pending.onOk) pending.onOk(msg);
     } else {
-      calStatus(msg.msg || 'คำสั่งไม่สำเร็จ', 'bad');
+      calStatus(msg.msg || 'สั่งหุ่นไม่ได้', 'bad');
     }
     return true;
   }
@@ -2480,14 +2480,14 @@
     if (action === 'tare') {
       calSend('tare', 'tare', () => {
         state.cal.step = 2;
-        calStatus('ตั้งศูนย์เรียบร้อย', 'ok');
+        calStatus('ตั้งศูนย์แล้ว', 'ok');
         renderCalib();
       });
     } else if (action === 'weight') {
       const input = document.getElementById('calWeightInput');
       const kg = input ? parseFloat(input.value) : NaN;
       if (!has(kg) || kg < .2 || kg > 20) {
-        calStatus('กรอกน้ำหนักระหว่าง 0.2 ถึง 20 กก.', 'bad');
+        calStatus('ใส่น้ำหนัก 0.2–20 กก.', 'bad');
         return;
       }
       calSend('cal weight ' + kg.toFixed(1), 'cal weight', () => {
@@ -2503,7 +2503,7 @@
       calSend('cal finish', 'cal finish', () => {
         state.cal.active = false;
         state.cal.step = 4;
-        calStatus('ประมวลผลช่วงความลึกแล้ว', 'ok');
+        calStatus('คำนวณช่วงกดแล้ว', 'ok');
         renderCalib();
       });
     } else if (action === 'peak') {
@@ -2522,7 +2522,7 @@
         }
         if (!has(cal.deepKg)) {
           if (kg <= cal.goodKg) {
-            calStatus('ค่าจุดลึกต้องมากกว่าจุดตื้น', 'bad');
+            calStatus('ค่า 6 ซม. ต้องมากกว่าค่า 5 ซม.', 'bad');
             renderCalib();
             return;
           }
