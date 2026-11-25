@@ -13,12 +13,12 @@
 
 | วิธี | ใช้กับ | ทำอะไร |
 |---|---|---|
-| Wi-Fi | ESP32 | ต่อ Wi-Fi `CPR-Trainer-XXXX` รหัส `cprtrain123` แล้วเปิด `http://192.168.4.1` หน้าเว็บจะเชื่อมต่อให้เอง |
-| สาย USB | Nano หรือ ESP32 | ใช้ Chrome หรือ Edge บนคอม เลือก **สาย USB** แล้วเลือกพอร์ต |
+| Wi-Fi | ESP32 | ต่อ Wi-Fi `CPR-Trainer-XXXX` รหัส `cprtrain123` แล้วเปิด `http://192.168.4.1` หน้าเว็บจะเชื่อมต่อให้เอง (ระหว่างต่อ Wi-Fi บอร์ดจะปิด USB ชั่วคราว) |
+| สาย USB (บริดจ์) | ESP32 หรือ Nano | ดับเบิลคลิก `start-usb.bat` (Windows) หรือรัน `python tools/usb_server.py` เบราว์เซอร์จะเปิด `http://127.0.0.1:8080/?ws=1` และเชื่อมต่ออัตโนมัติ ใช้ได้ทุกเบราว์เซอร์ (บน ESP32 จะปิด Wi-Fi ให้อัตโนมัติขณะหน้าเว็บเปิดอยู่) |
+| สาย USB (Web Serial) | ESP32 หรือ Nano | รัน `python tools/usb_server.py --webserial` เปิดด้วย Chrome หรือ Edge เลือก **สาย USB** แล้วเลือกพอร์ต |
 | เดโม | ไม่ต้องมีหุ่น | เลือกข้อมูลตัวอย่างจากช่อง **เดโม** |
 
-Web Serial ใช้ความเร็ว 115200 ถ้าเบราว์เซอร์ไม่มี `navigator.serial`
-การ์ด **สาย USB** จะกดไม่ได้ และขึ้นว่า **เบราว์เซอร์นี้ไม่รองรับ**
+Web Serial ใช้ความเร็ว 115200 และต้องเปิดผ่าน `localhost` หรือ `https://` ถ้าเปิดจาก `http://192.168.4.1` หรือ `file://` การ์ด **สาย USB** จะกดไม่ได้และขึ้นว่า **เปิดผ่าน localhost หรือ HTTPS** ส่วนเบราว์เซอร์ที่ไม่รองรับจะขึ้นว่า **เบราว์เซอร์นี้ไม่รองรับ**
 
 ชุดเดโมมี `good`, `shallow`, `cycle`, `test2min` และ `kgonly_good` เล่นซ้ำอัตโนมัติ
 ชุด `kgonly_good` ใช้หน่วย กก. และไม่มีสวิตช์มือ เหมือนหุ่นรุ่นสุดท้าย
@@ -269,7 +269,8 @@ index,time_s,peak,unit,depth_level,bpm,rate_level,recoil_ok,hand_ok,all_ok
 | `sheet` | `summary`, `calib`, `th`, `settings`, `connect`, `info` | เปิดแผ่นข้อมูลที่เลือก |
 | `info` | `depth`, `rate`, `recoil`, `hand`, `count`, `ccf`, `score`, `sps`, `about` | เลือกหัวข้อเมื่อ `sheet=info` |
 | `mock` | `nohx`, `nohand`, `diag` (คั่นด้วย comma) | จำลองสถานะในเดโม: `nohx` ขึ้นแบนเนอร์ไม่เจอเครื่องชั่ง, `nohand` ซ่อนการ์ดมือ, `diag` ส่งบรรทัดระบบทุก 5 วินาที |
-| `ws` | `1` | รับข้อมูลจาก dev server ผ่าน WebSocket |
+| `ws` | `1` | รับข้อมูลจาก dev server หรือ USB bridge (`tools/usb_server.py`) ผ่าน WebSocket |
+| `usb` | `1` | เปิดโหมด Web Serial (เชื่อมต่อพอร์ตที่เคยอนุญาตอัตโนมัติ หรือเปิดหน้าต่างเชื่อมต่อ) |
 | `motion` | `freeze` | ปิดแอนิเมชันและแสดงค่าสุดท้าย |
 
 ตัวอย่าง `?demo=good&seek=14&sheet=info&info=score&motion=freeze`

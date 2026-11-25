@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "pins.h"
 #include "web_assets.h"
 #include "cpr_command.h"
 #include "cpr_json.h"
@@ -21,6 +22,8 @@
 
 namespace {
 
+enum class ConnMode : uint8_t { Idle = 0, Wifi = 1, Usb = 2 };
+
 constexpr uint16_t kHttpPort = 80;
 constexpr uint8_t kApChannel = 6;
 constexpr uint8_t kMaxStations = 4;
@@ -32,6 +35,11 @@ constexpr uint32_t kFramePeriodMs = 50;
 constexpr uint32_t kDiagPeriodMs = 5000;
 constexpr uint32_t kRxWindowMs = 1000;
 constexpr uint16_t kRxLinesPerWindow = 20;
+// Engineering values, tunable: USB web heartbeat lease timeout and status LED timings.
+constexpr uint32_t kUsbWebTimeoutMs = 10000;
+constexpr uint32_t kLedIdleHalfPeriodMs = 500;
+constexpr uint32_t kLedWifiPeriodMs = 3000;
+constexpr uint32_t kLedWifiLowMs = 500;
 
 AsyncWebServer g_server(kHttpPort);
 AsyncWebSocket g_ws("/ws");
@@ -48,6 +56,12 @@ portMUX_TYPE g_frameMux = portMUX_INITIALIZER_UNLOCKED;
 bool g_frameFresh = false;
 
 bool g_serialStreaming = (CPR_SERIAL_STREAM_DEFAULT != 0);
+ConnMode g_connMode = ConnMode::Idle;
+bool g_wifiEnabled = false;
+uint32_t g_usbWebLastMs = 0;
+int8_t g_ledState = -1;
+char g_ssid[24];
+char g_wifiPass[64];
 
 // Each counter has a single writer task; volatile is enough for a snapshot.
 volatile uint32_t g_rxCount = 0;
@@ -218,9 +232,103 @@ bool forwardSerialLine(const char* line) {
   return true;
 }
 
+bool usbAllowed() {
+  return g_connMode != ConnMode::Wifi;
+}
+
+void startWifiAp() {
+  if (g_wifiEnabled) return;
+
+  WiFi.mode(WIFI_AP);
+  IPAddress ip(192, 168, 4, 1);
+  IPAddress mask(255, 255, 255, 0);
+  WiFi.softAPConfig(ip, ip, mask);
+  if (!WiFi.softAP(g_ssid, g_wifiPass, kApChannel, 0, kMaxStations)) {
+    Serial.println("# AP start failed");
+    return;
+  }
+
+#if CPR_CAPTIVE_DNS
+  g_dns.setErrorReplyCode(DNSReplyCode::NoError);
+  if (!g_dns.start(53, "*", WiFi.softAPIP())) {
+    Serial.println("# DNS start failed");
+  }
+#endif
+
+  g_wifiEnabled = true;
+}
+
+void stopWifiAp() {
+  if (!g_wifiEnabled) return;
+
+  g_ws.closeAll();
+#if CPR_CAPTIVE_DNS
+  g_dns.stop();
+#endif
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_OFF);
+  g_wifiEnabled = false;
+}
+
+void updateStatusLed(uint32_t now) {
+  uint8_t level = LOW;
+  if (g_connMode == ConnMode::Usb) {
+    level = HIGH;
+  } else if (g_connMode == ConnMode::Wifi) {
+    // Blink LOW for 0.5 s every 3.0 s (HIGH 2.5 s, LOW 0.5 s).
+    level = ((now % kLedWifiPeriodMs) < kLedWifiLowMs) ? LOW : HIGH;
+  } else {
+    // Idle: toggle every 0.5 s.
+    level = (((now / kLedIdleHalfPeriodMs) % 2UL) == 0UL) ? HIGH : LOW;
+  }
+
+  if ((int8_t)level != g_ledState) {
+    g_ledState = (int8_t)level;
+    digitalWrite(pins::kLedBuiltin, level);
+  }
+}
+
+void updateConnMode(uint32_t now) {
+  if (g_connMode == ConnMode::Usb) {
+    if ((uint32_t)(now - g_usbWebLastMs) >= kUsbWebTimeoutMs) {
+      g_connMode = ConnMode::Idle;
+      startWifiAp();
+    }
+    return;
+  }
+
+  const size_t wsClients = g_wifiEnabled ? g_ws.count() : 0;
+  if (g_connMode == ConnMode::Idle && wsClients > 0) {
+    g_connMode = ConnMode::Wifi;
+  } else if (g_connMode == ConnMode::Wifi && wsClients == 0) {
+    g_connMode = ConnMode::Idle;
+  }
+}
+
 void handleSerialLine(char* text) {
   char* line = trimLine(text);
   if (*line == '\0') return;
+
+  // Ignore USB commands while a Wi-Fi web client owns the session.
+  if (!usbAllowed()) return;
+
+  if (equalsIgnoreCase(line, "usb active")) {
+    g_usbWebLastMs = millis();
+    net::setSerialStreaming(true);
+    if (g_connMode != ConnMode::Usb) {
+      g_connMode = ConnMode::Usb;
+      stopWifiAp();
+    }
+    return;
+  }
+
+  if (equalsIgnoreCase(line, "usb idle")) {
+    if (g_connMode == ConnMode::Usb) {
+      g_connMode = ConnMode::Idle;
+      startWifiAp();
+    }
+    return;
+  }
 
   if (equalsIgnoreCase(line, "serial on") ||
       equalsIgnoreCase(line, "serial off")) {
@@ -290,9 +398,11 @@ void drainOutput() {
   char line[kOutLineLen];
   while (xQueueReceive(g_outQueue, line, 0) == pdTRUE) {
     line[kOutLineLen - 1] = '\0';
-    g_ws.textAll(line);
+    if (g_wifiEnabled && g_ws.count() > 0) {
+      g_ws.textAll(line);
+    }
 
-    if (g_serialStreaming) {
+    if (g_serialStreaming && usbAllowed()) {
       const size_t len = strlen(line);
       if (Serial.availableForWrite() >= (int)(len + 2)) {
         Serial.println(line);
@@ -322,7 +432,7 @@ void sendLatestFrame(uint32_t now) {
   portEXIT_CRITICAL(&g_frameMux);
   lastFrameMs = now;
 
-  if (g_ws.count() > 0) {
+  if (g_wifiEnabled && g_ws.count() > 0) {
     if (g_ws.availableForWriteAll()) {
       g_ws.textAll(line);
     } else {
@@ -330,7 +440,7 @@ void sendLatestFrame(uint32_t now) {
     }
   }
 
-  if (g_serialStreaming) {
+  if (g_serialStreaming && usbAllowed()) {
     const size_t len = strlen(line);
     if (Serial.availableForWrite() >= (int)(len + 2)) {
       Serial.println(line);
@@ -341,21 +451,33 @@ void sendLatestFrame(uint32_t now) {
 }
 
 void sendDiag(uint32_t now) {
-  if (g_ws.count() == 0) return;
+  const bool wantWs = g_wifiEnabled && g_ws.count() > 0;
+  const bool wantSerial = g_serialStreaming && usbAllowed();
+  if (!wantWs && !wantSerial) return;
 
-  char buffer[192];
+  char buffer[208];
   const int written = snprintf(
       buffer, sizeof(buffer),
       "{\"ty\":\"diag\",\"up\":%lu,\"rx\":%lu,\"rxBad\":%lu,\"qDrop\":%lu,"
       "\"sSkip\":%lu,\"fDrop\":%lu,\"sps\":%u,\"heap\":%lu,\"ser\":%d,"
-      "\"hx\":%d}",
+      "\"hx\":%d,\"wifi\":%d}",
       (unsigned long)(now / 1000UL), (unsigned long)g_rxCount,
       (unsigned long)g_rxBad, (unsigned long)g_qDrop, (unsigned long)g_sSkip,
       (unsigned long)g_fDrop, (unsigned)g_diagSps,
       (unsigned long)ESP.getFreeHeap(), g_serialStreaming ? 1 : 0,
-      g_diagHx ? 1 : 0);
+      g_diagHx ? 1 : 0, g_wifiEnabled ? 1 : 0);
   if (written <= 0 || (size_t)written >= sizeof(buffer)) return;
-  g_ws.textAll(buffer);
+
+  if (wantWs) {
+    g_ws.textAll(buffer);
+  }
+  if (wantSerial) {
+    if (Serial.availableForWrite() >= written + 2) {
+      Serial.println(buffer);
+    } else {
+      g_sSkip = g_sSkip + 1;
+    }
+  }
 }
 
 } // namespace
@@ -367,32 +489,27 @@ void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
   g_outQueue = outQueue;
   g_cmdQueue = cmdQueue;
   g_configLine[0] = '\0';
+  g_connMode = ConnMode::Idle;
+  g_wifiEnabled = false;
+  g_usbWebLastMs = 0;
+  g_ledState = -1;
+
+  pinMode(pins::kLedBuiltin, OUTPUT);
+  updateStatusLed(millis());
 
   const char* password = wifiPassword;
   if (password == nullptr || strlen(password) < 8) {
     password = kDefaultWifiPass;
   }
+  strncpy(g_wifiPass, password, sizeof(g_wifiPass) - 1);
+  g_wifiPass[sizeof(g_wifiPass) - 1] = '\0';
 
   WiFi.mode(WIFI_AP);
   uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
   WiFi.macAddress(mac);
+  snprintf(g_ssid, sizeof(g_ssid), "CPR-Trainer-%02X%02X", mac[4], mac[5]);
 
-  char ssid[24];
-  snprintf(ssid, sizeof(ssid), "CPR-Trainer-%02X%02X", mac[4], mac[5]);
-
-  IPAddress ip(192, 168, 4, 1);
-  IPAddress mask(255, 255, 255, 0);
-  WiFi.softAPConfig(ip, ip, mask);
-  if (!WiFi.softAP(ssid, password, kApChannel, 0, kMaxStations)) {
-    Serial.println("# AP start failed");
-  }
-
-#if CPR_CAPTIVE_DNS
-  g_dns.setErrorReplyCode(DNSReplyCode::NoError);
-  if (!g_dns.start(53, "*", WiFi.softAPIP())) {
-    Serial.println("# DNS start failed");
-  }
-#endif
+  startWifiAp();
 
   g_ws.onEvent(onWsEvent);
   g_server.addHandler(&g_ws);
@@ -401,16 +518,18 @@ void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
 }
 
 void loop() {
-  drainSerial();
-  drainOutput();
-
   const uint32_t now = millis();
+  updateConnMode(now);
+  drainSerial();
+  updateConnMode(now);
+  drainOutput();
   sendLatestFrame(now);
 
   static uint32_t lastCleanupMs = 0;
-  if ((uint32_t)(now - lastCleanupMs) >= 1000) {
+  if (g_wifiEnabled && (uint32_t)(now - lastCleanupMs) >= 1000) {
     g_ws.cleanupClients(kMaxWsClients);
     lastCleanupMs = now;
+    updateConnMode(now);
   }
 
   static uint32_t lastDiagMs = 0;
@@ -418,6 +537,8 @@ void loop() {
     sendDiag(now);
     lastDiagMs = now;
   }
+
+  updateStatusLed(now);
 }
 
 void setConfigLine(const char* line) {

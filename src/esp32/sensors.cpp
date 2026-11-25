@@ -15,7 +15,8 @@ namespace {
 constexpr uint16_t kMaxValidRangeMm = 8000;
 
 constexpr uint32_t kHxReadyWaitMs = 3000;
-constexpr uint16_t kHxReadTimeoutMs = 200;
+constexpr uint32_t kHxPowerUpDelayMs = 400; // engineering value, tunable: let 3.3V rail and HX711 settle on cold boot
+constexpr uint16_t kHxReadTimeoutMs = 500;  // engineering value, tunable: >400 ms HX711 10-SPS reset settling time
 constexpr uint8_t kHxDiscardReads = 4;
 constexpr uint8_t kHxTareReads = 8;
 constexpr long kHxSatHigh = 8388607L;
@@ -60,6 +61,9 @@ void Sensors::begin(float scaleFactor) {
   hx_.begin(pins::kHx711Dout, pins::kHx711Sck);
   hx_.set_scale(scale_);
 
+  // Let the 3.3 V rail and HX711 settle after cold power-on before pulsing
+  // PD_SCK to reset the ADC.
+  delay(kHxPowerUpDelayMs);
   hx_.power_down();
   delayMicroseconds(100);
   hx_.power_up();
@@ -70,11 +74,15 @@ void Sensors::begin(float scaleFactor) {
     delay(10);
   }
 
+  bool bootOk = false;
   if (hx_.is_ready()) {
     hxPresent_ = true;
     lastReadyMs_ = millis();
-    discardConversions(kHxDiscardReads, kHxReadTimeoutMs);
-    if (!tareLoadCell(kHxReadyWaitMs)) {
+    if (discardConversions(kHxDiscardReads, kHxReadTimeoutMs) &&
+        tareLoadCell(kHxReadyWaitMs)) {
+      bootOk = true;
+    } else {
+      hxPresent_ = false;
       Serial.println("# HX711 tare failed");
     }
   } else {
@@ -83,7 +91,7 @@ void Sensors::begin(float scaleFactor) {
   }
 
   const uint32_t now = millis();
-  hxState_ = hxPresent_ ? HxState::Present : HxState::Probe;
+  hxState_ = bootOk ? HxState::Present : HxState::Probe;
   lastProbeMs_ = now;
   lastPulseMs_ = now;
 

@@ -553,7 +553,8 @@
       info: q.get('info') || '',
       motion: q.get('motion') || '',
       mock: mockRaw.split(',').map((item) => item.trim()).filter(Boolean),
-      ws: q.get('ws') === '1'
+      ws: q.get('ws') === '1',
+      usb: q.get('usb') === '1'
     };
   }
 
@@ -961,14 +962,27 @@
   }
 
   class SerialTransport {
-    constructor() {
+    constructor(opts) {
+      this.autoConnect = !!(opts && opts.autoConnect);
       this.port = null;
       this.reader = null;
       this.writer = null;
       this.stopped = true;
+      this.received = false;
+      this.configTimer = null;
+      this.hbTimer = null;
       this.onMessage = null;
       this.onStatus = null;
       this.onError = null;
+      this._onPortDisconnect = (event) => {
+        if (this.port && event && event.target === this.port && !this.stopped) {
+          this.disconnect();
+          this.onError && this.onError('สาย USB หลุด');
+        }
+      };
+      this._onPageHide = () => {
+        if (!this.stopped) this.send('usb idle');
+      };
     }
 
     async connect() {
@@ -978,16 +992,44 @@
         return;
       }
       this.stopped = false;
+      this.received = false;
       this.onStatus && this.onStatus('connecting');
       try {
-        this.port = await navigator.serial.requestPort();
+        if (this.autoConnect && typeof navigator.serial.getPorts === 'function') {
+          const ports = await navigator.serial.getPorts();
+          if (!ports.length) {
+            this.stopped = true;
+            this.onStatus && this.onStatus('off');
+            openConnect();
+            return;
+          }
+          this.port = ports[0];
+        } else {
+          this.port = await navigator.serial.requestPort();
+        }
         await this.port.open({ baudRate: 115200 });
         const decoder = new TextDecoderStream();
         this.port.readable.pipeTo(decoder.writable).catch(() => {});
         this.reader = decoder.readable.getReader();
         this.writer = this.port.writable.getWriter();
+        navigator.serial.addEventListener('disconnect', this._onPortDisconnect);
+        window.addEventListener('pagehide', this._onPageHide);
+        window.addEventListener('beforeunload', this._onPageHide);
         this.onStatus && this.onStatus('connected');
         this.readLoop();
+        // Announce USB web session (turns off ESP32 Wi-Fi) and ask for config.
+        this.send('usb active');
+        this.send('config');
+        this.hbTimer = setInterval(() => {
+          if (!this.stopped) this.send('usb active');
+        }, 3000);
+        this.configTimer = setTimeout(() => {
+          this.configTimer = null;
+          if (!this.stopped && !this.received) {
+            this.send('usb active');
+            this.send('config');
+          }
+        }, 2000);
       } catch (err) {
         this.stopped = true;
         this.onStatus && this.onStatus('off', { error: err.message });
@@ -1016,6 +1058,11 @@
             } catch (err) {
               continue;
             }
+            this.received = true;
+            if (this.configTimer) {
+              clearTimeout(this.configTimer);
+              this.configTimer = null;
+            }
             this.onMessage && this.onMessage(obj, { instant: false, at: has(obj.t) ? obj.t : null });
           }
           if (buffer.length > 8192) buffer = '';
@@ -1025,8 +1072,25 @@
       }
       if (!this.stopped) {
         this.stopped = true;
+        this.cleanupListeners();
         this.onStatus && this.onStatus('off');
       }
+    }
+
+    cleanupListeners() {
+      if (this.hbTimer) {
+        clearInterval(this.hbTimer);
+        this.hbTimer = null;
+      }
+      if (this.configTimer) {
+        clearTimeout(this.configTimer);
+        this.configTimer = null;
+      }
+      if ('serial' in navigator) {
+        try { navigator.serial.removeEventListener('disconnect', this._onPortDisconnect); } catch (err) { /* ignore */ }
+      }
+      window.removeEventListener('pagehide', this._onPageHide);
+      window.removeEventListener('beforeunload', this._onPageHide);
     }
 
     async send(line) {
@@ -1039,7 +1103,12 @@
     }
 
     async disconnect() {
+      const wasActive = !this.stopped;
       this.stopped = true;
+      this.cleanupListeners();
+      if (wasActive && this.writer) {
+        try { await this.send('usb idle'); } catch (err) { /* ignore */ }
+      }
       try { if (this.reader) await this.reader.cancel(); } catch (err) { /* ignore */ }
       try { if (this.writer) this.writer.releaseLock(); } catch (err) { /* ignore */ }
       try { if (this.port) await this.port.close(); } catch (err) { /* ignore */ }
@@ -2039,7 +2108,10 @@
       if (serial) els.connectSerial.removeAttribute('aria-disabled');
       else els.connectSerial.setAttribute('aria-disabled', 'true');
     }
-    setText(els.serialHint, serial ? 'Chrome / Edge บนคอม' : 'เบราว์เซอร์นี้ไม่รองรับ');
+    const serialHintText = serial
+      ? 'Chrome / Edge บนคอม'
+      : (window.isSecureContext === false ? 'เปิดผ่าน localhost หรือ HTTPS' : 'เบราว์เซอร์นี้ไม่รองรับ');
+    setText(els.serialHint, serialHintText);
     if (state.opts.demo && els.demoSelect) {
       try { els.demoSelect.value = state.opts.demo; } catch (err) { /* no such option */ }
     }
@@ -2293,8 +2365,9 @@
     const dropped = (has(diag.qDrop) ? diag.qDrop : 0) +
       (has(diag.fDrop) ? diag.fDrop : 0);
 
+    const wifiPart = has(diag.wifi) ? (' · Wi-Fi ' + (diag.wifi ? 'เปิด' : 'ปิด')) : '';
     return 'ระบบ · เปิดมา ' + upText + ' · อ่าน ' + sps + '/วิ · สาย USB ' +
-      usb + ' · ข้อมูลเสีย ' + bad + ' · หลุด ' + dropped;
+      usb + wifiPart + ' · ข้อมูลเสีย ' + bad + ' · หลุด ' + dropped;
   }
 
   function aboutBody() {
@@ -2307,7 +2380,8 @@
     const fw = cfg && cfg.fw ? 'FW ' + esc(cfg.fw) : 'FW —';
     const transport = state.status === 'off' ? 'ไม่ได้ต่อ'
       : state.transportKind === 'demo' ? 'เดโม'
-        : state.transportKind === 'serial' ? 'USB' : 'Wi-Fi';
+        : state.transportKind === 'serial' ? 'USB'
+          : isLocalPreview() ? 'USB (บริดจ์)' : 'Wi-Fi';
     return '<p>หุ่นฝึก CPR เด็ก โครงงานโรงเรียน</p>' +
       '<div class="disclaimer"><svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
       '<span>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</span></div>' +
@@ -2857,6 +2931,14 @@
 
     if (state.opts.ws) {
       attachTransport(new WsTransport(), 'ws');
+    } else if (state.opts.usb) {
+      if ('serial' in navigator) {
+        attachTransport(new SerialTransport({ autoConnect: true }), 'serial');
+      } else {
+        setTimeout(() => {
+          if (state.status === 'off') openConnect();
+        }, 80);
+      }
     } else if (state.opts.demo) {
       attachTransport(new DemoSocket({
         id: state.opts.demo,

@@ -59,7 +59,7 @@ void calibDefaults(CalibrationData& d) {
   d.magic = kCalMagic;
   d.version = kCalVersion;
   d.profile = (uint8_t)Profile::Child;
-  d.scaleFactor = -10000.0f; // HX711 starting scale from the old sketches
+  d.scaleFactor = 10000.0f; // HX711 starting scale; positive matches hardware load-cell polarity (see OPEN_ISSUES.md)
   d.mapCount = 0;
   for (uint8_t i = 0; i < kMaxCalPoints; ++i) {
     d.map[i].kg = 0.0f;
