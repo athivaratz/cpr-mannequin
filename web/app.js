@@ -43,6 +43,9 @@
   };
 
   const HANDS_OFF_MS = 2000;
+  // Engineering value, tunable: warn if live weight stays at 0.00 kg continuously.
+  const ZERO_STUCK_WARN_MS = 5000;
+  const HX_STATUS_TEXT = ['ปกติ', 'ไม่พบ HX711', 'กำลังตั้งศูนย์', 'ค่าเริ่มต้นผิดปกติ'];
 
   const TH_DEFAULTS = {
     good: 6.0,
@@ -81,6 +84,8 @@
     overloadUntil: 0,
     lowSps: false,
     sessionActive: false,
+    sessionArmed: false,
+    autoStart: false,
     metronome: false,
     rateLevel: 0,
     count: 0,
@@ -108,14 +113,24 @@
     bannerTimers: new Map(),
     staggerSeq: 0,
     swapTimer: null,
-    th: null
+    th: null,
+    dev: {
+      minKg: null,
+      maxKg: null,
+      zeroSinceMs: null,
+      zeroElapsedMs: 0,
+      zeroStuck: false,
+      rawKg: null,
+      hxStatus: null
+    }
   };
 
   const els = {};
 
   function cacheEls() {
     const ids = [
-      'connPill', 'connText', 'metroBtn', 'appNav', 'modeSwitch', 'heroCard',
+      'connPill', 'connText', 'metroBtn', 'appNav', 'modeSwitch', 'autoStartRow',
+      'autoStartSwitch', 'heroCard',
       'tiles', 'depthValue', 'depthUnit', 'depthPill', 'depthPillIcon', 'depthPillText',
       'depthHint', 'ruler', 'rulerSvg', 'rulerMarker', 'rulerCaret', 'ctaBtn',
       'ctaTitle', 'ctaSub', 'ctaIconUse', 'rateTile', 'rateValue', 'ratePill',
@@ -125,12 +140,18 @@
       'countTile', 'countLabel', 'countIconUse', 'countValue', 'countGood',
       'countRing', 'countRingNum', 'countCycle', 'countTestRing', 'countTestNum',
       'depthGraph', 'graphWrap', 'graphEmpty', 'pauseBanner', 'pauseText',
-      'breathBanner', 'warnSps', 'warnHx', 'warnOverload', 'toast', 'sheetLayer',
+      'breathBanner', 'warnSps', 'warnHx', 'warnHxTitle', 'warnHxSub',
+      'warnZeroStuck', 'warnZeroDevBtn', 'warnOverload', 'toast', 'sheetLayer',
       'sheetConnect', 'sheetSummary', 'sheetCalib', 'sheetSettings', 'sheetInfo',
       'sheetTh', 'thBody', 'thRow', 'openThBtn', 'thLiveKg', 'thLiveLast',
       'thBar', 'thZones', 'thLegend', 'thMarker', 'thSps', 'thSpsText',
       'thValGood', 'thValDeep', 'thValOver', 'thValContact', 'thValRecoil',
       'thResetBtn',
+      'sheetDev', 'devRow', 'openDevBtn', 'devHero', 'devHealthPill',
+      'devHealthIcon', 'devHealthText', 'devRawKg', 'devFiltKg', 'devAlert',
+      'devAlertText', 'devMinKg', 'devMaxKg', 'devZeroSec', 'devSps',
+      'devHxStatus', 'devHxReboots', 'devHxRaw', 'devHxOff', 'devHxScale',
+      'devSys', 'devTareBtn', 'devRebootBtn', 'devClearBtn',
       'connectWs', 'connectSerial', 'serialHint', 'connectDemo', 'demoSelect',
       'connectDisconnectRow', 'connectDisconnectBtn',
       'summaryContent', 'summaryEmpty', 'summaryFoot', 'scoreRing', 'scoreValue',
@@ -138,7 +159,8 @@
       'metricHand', 'metricCcf', 'mDepth', 'mRate', 'mRecoil', 'mHand', 'mCcf',
       'mDepthRing', 'mRateRing', 'mRecoilRing', 'mHandRing', 'mCcfRing',
       'summaryFacts', 'csvBtn', 'againBtn', 'goPracticeBtn', 'settingsConnText',
-      'settingsConnectBtn', 'settingsConnIconUse', 'metroSwitch', 'themeIconUse',
+      'settingsConnectBtn', 'settingsConnectRow', 'settingsConnIconUse',
+      'metroRow', 'metroSwitch', 'calibRow', 'aboutRow', 'themeIconUse',
       'profileIconUse', 'openCalibBtn', 'calibStepper', 'calibPanel',
       'calibStatus', 'calibActions', 'sheetInfoTitle', 'sheetInfoBody',
       'infoHeadUse'
@@ -159,6 +181,7 @@
       settings: els.sheetSettings,
       calib: els.sheetCalib,
       th: els.sheetTh,
+      dev: els.sheetDev,
       info: els.sheetInfo
     };
   }
@@ -279,6 +302,113 @@
 
   function depthText(value) {
     return has(value) ? Number(value).toFixed(1) : '—';
+  }
+
+  function fmtRawKg(value) {
+    if (!has(value)) return '—';
+    const rounded = Math.round(value * 100) / 100;
+    if (Object.is(rounded, -0) || Math.abs(rounded) < 0.005) return '0.00';
+    return rounded.toFixed(2);
+  }
+
+  function resetDevStats() {
+    state.dev.minKg = null;
+    state.dev.maxKg = null;
+    state.dev.zeroSinceMs = null;
+    state.dev.zeroElapsedMs = 0;
+    state.dev.zeroStuck = false;
+  }
+
+  function openDev() {
+    openSheet('dev');
+    updateDevUI();
+  }
+
+  function updateDevUI() {
+    const dev = state.dev;
+    const frame = state.frame;
+    const diag = state.lastDiag;
+    const rawKg = has(dev.rawKg) ? dev.rawKg : null;
+    const filtKg = frame && has(frame.kg) ? frame.kg : null;
+
+    setText(els.devRawKg, fmtRawKg(rawKg));
+    setText(els.devFiltKg, 'หลังกรอง ' + (filtKg == null ? '—' : Number(filtKg).toFixed(2)) + ' กก.');
+
+    const hxs = has(dev.hxStatus)
+      ? dev.hxStatus
+      : (state.cfg && state.cfg.hx === 0 ? 1 : (frame ? 0 : null));
+    const idleOutOfRange = frame && (frame.ph === 0 || !frame.ph) &&
+      rawKg != null && (rawKg < -1.0 || rawKg > 1.0);
+
+    let tone = 'idle';
+    let pillText = 'รอข้อมูล';
+    let alertText = '';
+    let alertTone = 'warn';
+
+    if (state.status === 'off') {
+      tone = 'idle';
+      pillText = 'ไม่ได้ต่อ';
+    } else if (hxs === 1) {
+      tone = 'bad';
+      pillText = 'ไม่พบ HX711';
+      alertText = 'ไม่พบสัญญาณจากบอร์ด HX711 กรุณาเช็คสาย VCC (3.3V), GND, DT (16), SCK (17)';
+      alertTone = 'bad';
+    } else if (hxs === 2) {
+      tone = 'warn';
+      pillText = 'กำลังตั้งศูนย์';
+      alertText = 'กำลังรีบูตและตั้งศูนย์บอร์ด HX711 กรุณาอย่าวางมือบนหุ่น';
+      alertTone = 'warn';
+    } else if (hxs === 3) {
+      tone = 'bad';
+      pillText = 'ค่าเริ่มต้นผิดปกติ';
+      alertText = 'ค่าเริ่มต้นนอกช่วง -1 ถึง 1 กก. ระบบกำลังรีบูต HX711 อัตโนมัติ กรุณาเช็คสายหรือบอร์ด HX711';
+      alertTone = 'bad';
+    } else if (dev.zeroStuck) {
+      tone = 'warn';
+      pillText = 'นิ่งที่ 0 กก.';
+      alertText = 'ค่าน้ำหนักนิ่งที่ 0.00 กก. เกิน 5 วินาที กรุณาเช็คสายเซนเซอร์ HX711 หรือกดรีบูต HX711';
+      alertTone = 'warn';
+    } else if (idleOutOfRange) {
+      tone = 'warn';
+      pillText = 'ค่านอกช่วงพัก';
+      alertText = 'ค่าน้ำหนักขณะพักอยู่นอกช่วง -1.00 ถึง 1.00 กก. (' + fmtRawKg(rawKg) + ' กก.) แนะนำให้กดตั้งศูนย์หรือรีบูต HX711';
+      alertTone = 'warn';
+    } else if (rawKg != null) {
+      tone = 'ok';
+      pillText = 'ปกติ';
+    }
+
+    if (els.devHero && els.devHero.dataset.tone !== tone) {
+      els.devHero.dataset.tone = tone;
+    }
+    setPill(els.devHealthPill, els.devHealthText, els.devHealthIcon, pillText, tone);
+
+    if (els.devAlert) {
+      els.devAlert.hidden = !alertText;
+      if (alertText) {
+        els.devAlert.dataset.tone = alertTone;
+        setText(els.devAlertText, alertText);
+      }
+    }
+
+    setText(els.devMinKg, has(dev.minKg) ? fmtRawKg(dev.minKg) + ' กก.' : '—');
+    setText(els.devMaxKg, has(dev.maxKg) ? fmtRawKg(dev.maxKg) + ' กก.' : '—');
+    setText(els.devZeroSec, (dev.zeroElapsedMs / 1000).toFixed(1) + ' วิ');
+    const sps = frame && has(frame.sps) ? frame.sps : (diag && has(diag.sps) ? diag.sps : null);
+    setText(els.devSps, sps != null ? sps + ' /วิ' : '—');
+    setText(els.devHxStatus, hxs != null && HX_STATUS_TEXT[hxs] ? HX_STATUS_TEXT[hxs] : '—');
+    setText(els.devHxReboots, diag && has(diag.hxRst) ? diag.hxRst + ' ครั้ง' : '0 ครั้ง');
+    setText(els.devHxRaw, diag && has(diag.hxRaw) ? String(diag.hxRaw) : '—');
+    setText(els.devHxOff, diag && has(diag.hxOff) ? String(diag.hxOff) : '—');
+    setText(els.devHxScale, diag && has(diag.hxSc) ? Number(diag.hxSc).toFixed(1) : '—');
+
+    if (diag) {
+      const heapKb = has(diag.heap) ? Math.round(diag.heap / 1024) + ' KB' : '—';
+      const drops = (has(diag.qDrop) ? diag.qDrop : 0) + (has(diag.fDrop) ? diag.fDrop : 0);
+      setText(els.devSys, heapKb + ' · หลุด ' + drops);
+    } else {
+      setText(els.devSys, '—');
+    }
   }
 
   function roundTh(value) {
@@ -607,6 +737,7 @@
     const words = String(line || '').trim().toLowerCase().split(/\s+/);
     if (!words[0]) return 'unknown';
     if (words[0] === 'cal') return words[1] ? 'cal ' + words[1] : 'cal';
+    if (words[0] === 'hx') return words[1] ? 'hx ' + words[1] : 'hx';
     if (words[0] === 'wifi') return 'wifi pass';
     return words[0];
   }
@@ -802,7 +933,7 @@
         this.onMessage && this.onMessage(ack, { instant: false, at: null });
         return;
       }
-      if (cmd === 'metro') msg = /\bon\b/i.test(line) ? 'on' : 'off';
+      if (cmd === 'metro' || cmd === 'autostart') msg = /\bon\b/i.test(line) ? 'on' : 'off';
       if (cmd === 'config') {
         this.emitCfg();
         msg = 'ok';
@@ -833,7 +964,7 @@
           setTimeout(() => this.emitCfg(), 30);
         }
       }
-      if (cmd === 'tare' || cmd === 'cal weight' || cmd === 'cal reset') {
+      if (cmd === 'tare' || cmd === 'hx reset' || cmd === 'cal weight' || cmd === 'cal reset') {
         setTimeout(() => this.emitCfg(), 30);
       }
       if (cmd === 'cal peak') {
@@ -1135,10 +1266,14 @@
     if ((status === 'connected' || status === 'demo') && state.sheet === 'connect') {
       closeSheet();
     }
+    if (status === 'connected' && state.transport) {
+      state.transport.send('autostart ' + (state.autoStart ? 'on' : 'off'));
+    }
     if (status === 'off' && previous !== 'off') {
       resetSession(true);
     }
     refreshInfoPanels();
+    if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
   }
 
   function attachTransport(transport, kind) {
@@ -1168,6 +1303,7 @@
     state.overloadUntil = 0;
     state.lowSps = false;
     state.sessionActive = false;
+    state.sessionArmed = false;
     state.rateLevel = 0;
     state.count = 0;
     state.cc = 0;
@@ -1177,6 +1313,9 @@
     state.targetRate = 60;
     state.dotsKey = '';
     state.graphDirty = true;
+    state.dev.rawKg = null;
+    state.dev.hxStatus = null;
+    resetDevStats();
     if (!keepConfig) state.cfg = null;
     renderRecoilDots();
     refreshConfigUI();
@@ -1191,6 +1330,7 @@
     refreshProfileButtons();
     refreshConfigUI();
     refreshThConfig();
+    if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
   }
 
   function applyFrame(msg, meta) {
@@ -1214,6 +1354,7 @@
     state.lowSps = !!msg.lsps;
     state.overload = !!msg.ov;
     state.sessionActive = !!msg.act;
+    if (state.sessionActive) state.sessionArmed = false;
     if (msg.ov) state.overloadUntil = msg.t + 2200;
 
     if (msg.ps && !state.pauseActive) {
@@ -1232,6 +1373,27 @@
     }
 
     state.graphDirty = true;
+
+    const rawKg = has(msg.rkg) ? msg.rkg : (has(msg.kg) ? msg.kg : null);
+    state.dev.rawKg = rawKg;
+    if (has(msg.hxs)) state.dev.hxStatus = msg.hxs;
+    if (rawKg != null) {
+      if (state.dev.minKg == null || rawKg < state.dev.minKg) state.dev.minKg = rawKg;
+      if (state.dev.maxKg == null || rawKg > state.dev.maxKg) state.dev.maxKg = rawKg;
+    }
+
+    const hxOk = !has(msg.hxs) || msg.hxs === 0;
+    if (state.status === 'connected' && hxOk && rawKg != null && Math.abs(rawKg) < 0.005) {
+      const nowPerf = performance.now();
+      if (state.dev.zeroSinceMs == null) state.dev.zeroSinceMs = nowPerf;
+      state.dev.zeroElapsedMs = nowPerf - state.dev.zeroSinceMs;
+      state.dev.zeroStuck = state.dev.zeroElapsedMs >= ZERO_STUCK_WARN_MS;
+    } else {
+      state.dev.zeroSinceMs = null;
+      state.dev.zeroElapsedMs = 0;
+      state.dev.zeroStuck = false;
+    }
+
     if (!meta.instant) {
       refreshInfoPanels();
     }
@@ -1312,6 +1474,7 @@
         break;
       case 'end':
         state.sessionActive = false;
+        state.sessionArmed = false;
         state.pauseActive = false;
         state.pauseStart = null;
         break;
@@ -1327,7 +1490,9 @@
         break;
       case 'diag':
         state.lastDiag = Object.assign({}, msg);
+        if (has(msg.hxs)) state.dev.hxStatus = msg.hxs;
         if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
+        if (state.sheet === 'dev') updateDevUI();
         break;
       default:
         break;
@@ -1352,6 +1517,10 @@
       openTh();
       return;
     }
+    if (sheet === 'dev') {
+      openDev();
+      return;
+    }
     if (sheet === 'connect') {
       openConnect();
       return;
@@ -1369,6 +1538,14 @@
   function handleAck(msg) {
     if (thHandleAck(msg)) return;
     if (calHandleAck(msg)) return;
+    if (msg.cmd === 'hx reset') {
+      showToast(msg.ok ? 'กำลังรีบูตและตั้งศูนย์ HX711' : (msg.msg || 'รีบูต HX711 ไม่ได้'), msg.ok ? 'ok' : 'bad');
+      return;
+    }
+    if (msg.cmd === 'tare' && state.sheet === 'dev') {
+      showToast(msg.ok ? 'ตั้งศูนย์แล้ว' : (msg.msg || 'ตั้งศูนย์ไม่ได้'), msg.ok ? 'ok' : 'bad');
+      return;
+    }
     if (!msg.ok) {
       showToast(msg.msg || 'สั่งหุ่นไม่ได้', 'bad');
     }
@@ -1533,6 +1710,19 @@
     if (send && state.transport) state.transport.send('metro ' + (state.metronome ? 'on' : 'off'));
   }
 
+  function setAutoStart(on, send, persist) {
+    state.autoStart = !!on;
+    if (els.autoStartSwitch) {
+      els.autoStartSwitch.setAttribute('aria-checked', state.autoStart ? 'true' : 'false');
+    }
+    if (persist) {
+      try { localStorage.setItem('cpr-autostart', state.autoStart ? '1' : '0'); } catch (err) { /* ignore */ }
+    }
+    if (send && state.transport && state.status !== 'off') {
+      state.transport.send('autostart ' + (state.autoStart ? 'on' : 'off'));
+    }
+  }
+
   function startSession() {
     if (!state.transport) {
       openConnect();
@@ -1543,6 +1733,7 @@
     state.lastSum = null;
     state.lastSumAt = null;
     resetSession(true);
+    state.sessionArmed = true;
     state.transport.send('start');
     showToast('เริ่มรอบใหม่', 'ok');
   }
@@ -1553,6 +1744,7 @@
       return;
     }
     if (state.sheet === 'summary') closeSheet();
+    state.sessionArmed = false;
     const seq = state.sumSeq;
     state.transport.send('stop');
     clearTimeout(state.stopTimer);
@@ -1631,8 +1823,16 @@
 
   function updateCta() {
     const active = state.sessionActive;
-    setText(els.ctaTitle, active ? 'จบรอบ' : 'เริ่มฝึก');
-    setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    if (active) {
+      setText(els.ctaTitle, 'จบรอบ');
+      setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    } else if (state.sessionArmed) {
+      setText(els.ctaTitle, 'พร้อมเริ่มฝึก');
+      setText(els.ctaSub, 'กดหน้าอกเพื่อเริ่มจับเวลา');
+    } else {
+      setText(els.ctaTitle, 'เริ่มฝึก');
+      setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    }
     setUse(els.ctaIconUse, active ? 'square' : 'play');
   }
 
@@ -1841,7 +2041,23 @@
     const breathing = state.mode === 'cycle' && state.sessionActive && state.cc >= 30;
     toggleBanner(els.breathBanner, breathing);
     toggleBanner(els.warnSps, state.lowSps);
-    toggleBanner(els.warnHx, !!(state.cfg && state.cfg.hx === 0));
+
+    const hxs = state.dev.hxStatus;
+    const showHxWarn = (state.cfg && state.cfg.hx === 0) || (has(hxs) && hxs !== 0);
+    if (showHxWarn) {
+      if (hxs === 2) {
+        setText(els.warnHxTitle, 'กำลังรีบูตและตั้งศูนย์ HX711');
+        setText(els.warnHxSub, 'อย่าวางมือบนหุ่นสักครู่');
+      } else if (hxs === 3) {
+        setText(els.warnHxTitle, 'ค่าเริ่มต้น HX711 ผิดปกติ');
+        setText(els.warnHxSub, 'กำลังรีบูตบอร์ด HX711 · เช็คสายเซนเซอร์');
+      } else {
+        setText(els.warnHxTitle, 'ไม่เจอเครื่องชั่ง');
+        setText(els.warnHxSub, 'เช็กสาย HX711');
+      }
+    }
+    toggleBanner(els.warnHx, showHxWarn);
+    toggleBanner(els.warnZeroStuck, !showHxWarn && state.dev.zeroStuck);
 
     if (!state.overload && frame && has(frame.t) && frame.t > state.overloadUntil) {
       state.overload = false;
@@ -1996,6 +2212,13 @@
       state.display.rate = state.targetRate;
     }
 
+    if (state.dev.zeroSinceMs != null && state.status === 'connected') {
+      state.dev.zeroElapsedMs = performance.now() - state.dev.zeroSinceMs;
+      if (state.dev.zeroElapsedMs >= ZERO_STUCK_WARN_MS) {
+        state.dev.zeroStuck = true;
+      }
+    }
+
     updateHero();
     updateRate();
     updateRecoil();
@@ -2004,6 +2227,7 @@
     updateBanners();
     updateCta();
     if (state.sheet === 'th') thUpdateLive();
+    if (state.sheet === 'dev') updateDevUI();
     if (state.graphDirty) {
       drawGraph();
       state.graphDirty = false;
@@ -2372,6 +2596,7 @@
 
   function aboutBody() {
     const cfg = state.cfg;
+    const diag = state.lastDiag;
     let board = '—';
     if (cfg && cfg.board) {
       const name = String(cfg.board);
@@ -2382,11 +2607,48 @@
       : state.transportKind === 'demo' ? 'เดโม'
         : state.transportKind === 'serial' ? 'USB'
           : isLocalPreview() ? 'USB (บริดจ์)' : 'Wi-Fi';
-    return '<p>หุ่นฝึก CPR เด็ก โครงงานโรงเรียน</p>' +
-      '<div class="disclaimer"><svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
-      '<span>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</span></div>' +
-      '<p class="muted">' + board + ' · ' + fw + ' · ' + transport + '</p>' +
-      '<p class="muted about-diag">' + esc(diagSummary()) + '</p>';
+
+    let upText = '—';
+    let spsText = '—';
+    if (diag) {
+      const up = has(diag.up) ? diag.up : 0;
+      const minutes = Math.floor(up / 60);
+      upText = minutes >= 60
+        ? Math.floor(minutes / 60) + ' ชม. ' + (minutes % 60) + ' นาที'
+        : minutes >= 1 ? minutes + ' นาที' : Math.floor(up) + ' วิ';
+      spsText = (has(diag.sps) ? diag.sps : 0) + ' /วิ';
+    } else if (state.frame && has(state.frame.sps)) {
+      spsText = state.frame.sps + ' /วิ';
+    }
+
+    const connTone = state.status === 'connected' || state.status === 'demo' ? 'ok' : 'idle';
+    return '<div class="about-wrap">' +
+      '<div class="about-hero">' +
+        '<span class="about-brand-ico"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-heart-pulse"></use></svg></span>' +
+        '<div class="about-hero-copy">' +
+          '<h3 class="about-name">CPR Smart Chest</h3>' +
+          '<p class="about-tagline">หุ่นฝึกปฏิบัติการกดหน้าอกช่วยฟื้นคืนชีพ</p>' +
+          '<div class="about-badges">' +
+            '<span class="about-badge">' + board + '</span>' +
+            '<span class="about-badge">' + fw + '</span>' +
+            '<span class="about-badge is-' + connTone + '">' + esc(transport) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="about-disclaimer">' +
+        '<svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
+        '<span>สื่อการเรียนรู้และฝึกทักษะ ไม่ใช่เครื่องมือแพทย์</span>' +
+      '</div>' +
+      '<div class="about-grid">' +
+        '<div class="about-stat"><span>การเชื่อมต่อ</span><strong>' + esc(transport) + '</strong></div>' +
+        '<div class="about-stat"><span>เปิดเครื่องมา</span><strong>' + esc(upText) + '</strong></div>' +
+        '<div class="about-stat"><span>อัตราอ่าน</span><strong>' + esc(spsText) + '</strong></div>' +
+      '</div>' +
+      '<p class="about-diag-bar">' + esc(diagSummary()) + '</p>' +
+      '<div class="about-foot">' +
+        '<button type="button" class="btn btn-primary about-start-btn" data-close="1">เริ่มใช้งาน</button>' +
+      '</div>' +
+    '</div>';
   }
 
   function populateInfo() {
@@ -2789,7 +3051,17 @@
       });
     }
     if (els.metroBtn) els.metroBtn.addEventListener('click', () => setMetronome(!state.metronome, true));
-    if (els.metroSwitch) els.metroSwitch.addEventListener('click', () => setMetronome(!state.metronome, true));
+    if (els.metroSwitch) els.metroSwitch.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setMetronome(!state.metronome, true);
+    });
+    if (els.metroRow) els.metroRow.addEventListener('click', () => setMetronome(!state.metronome, true));
+
+    if (els.autoStartSwitch) els.autoStartSwitch.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setAutoStart(!state.autoStart, true, true);
+    });
+    if (els.autoStartRow) els.autoStartRow.addEventListener('click', () => setAutoStart(!state.autoStart, true, true));
 
     document.addEventListener('click', (event) => {
       const info = event.target.closest('[data-info]');
@@ -2830,7 +3102,11 @@
       });
     }
 
-    if (els.settingsConnectBtn) els.settingsConnectBtn.addEventListener('click', openConnect);
+    if (els.settingsConnectBtn) els.settingsConnectBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openConnect();
+    });
+    if (els.settingsConnectRow) els.settingsConnectRow.addEventListener('click', openConnect);
     if (els.connectDisconnectBtn) {
       els.connectDisconnectBtn.addEventListener('click', () => {
         if (state.transport) {
@@ -2841,9 +3117,50 @@
         setStatus('off');
       });
     }
-    if (els.openCalibBtn) els.openCalibBtn.addEventListener('click', openCalib);
-    if (els.openThBtn) els.openThBtn.addEventListener('click', openTh);
+    if (els.openCalibBtn) els.openCalibBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openCalib();
+    });
+    if (els.calibRow) els.calibRow.addEventListener('click', openCalib);
+    if (els.openThBtn) els.openThBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openTh();
+    });
+    if (els.thRow) els.thRow.addEventListener('click', openTh);
+    if (els.openDevBtn) els.openDevBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openDev();
+    });
+    if (els.devRow) els.devRow.addEventListener('click', openDev);
+    if (els.warnZeroDevBtn) els.warnZeroDevBtn.addEventListener('click', openDev);
     if (els.thResetBtn) els.thResetBtn.addEventListener('click', thReset);
+
+    if (els.devTareBtn) {
+      els.devTareBtn.addEventListener('click', () => {
+        if (!state.transport || state.status === 'off') {
+          showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
+          return;
+        }
+        state.transport.send('tare');
+      });
+    }
+    if (els.devRebootBtn) {
+      els.devRebootBtn.addEventListener('click', () => {
+        if (!state.transport || state.status === 'off') {
+          showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
+          return;
+        }
+        resetDevStats();
+        state.transport.send('hx reset');
+      });
+    }
+    if (els.devClearBtn) {
+      els.devClearBtn.addEventListener('click', () => {
+        state.dev.minKg = null;
+        state.dev.maxKg = null;
+        updateDevUI();
+      });
+    }
 
     els.thStepButtons.forEach((button) => {
       button.addEventListener('click', () => {
@@ -2913,6 +3230,9 @@
       state.theme = state.opts.theme;
     }
     setTheme(state.theme, false);
+    let savedAutoStart = false;
+    try { savedAutoStart = localStorage.getItem('cpr-autostart') === '1'; } catch (err) { /* ignore */ }
+    setAutoStart(savedAutoStart, false, false);
     refreshModeButtons();
     refreshProfileButtons();
     refreshThemeButtons();
@@ -2962,7 +3282,11 @@
       }, 80);
     }
 
-    if (!state.opts.ws && !state.opts.demo) {
+    if (!state.opts.sheet) {
+      setTimeout(() => {
+        if (!state.sheet) openInfo('about');
+      }, 150);
+    } else if (!state.opts.ws && !state.opts.demo) {
       if (state.opts.sheet === 'connect') {
         setTimeout(() => {
           if (state.status === 'off') openConnect();
@@ -2971,6 +3295,8 @@
         setTimeout(openSettings, 120);
       } else if (state.opts.sheet === 'th') {
         setTimeout(openTh, 120);
+      } else if (state.opts.sheet === 'dev') {
+        setTimeout(openDev, 120);
       } else if (state.opts.sheet === 'info') {
         setTimeout(() => openInfo(state.opts.info || 'depth'), 120);
       }

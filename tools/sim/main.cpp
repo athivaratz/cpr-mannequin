@@ -11,7 +11,7 @@
 
 namespace {
 
-const char* kFirmware = "1.3.0";
+const char* kFirmware = "1.4.0";
 const char* kBoard = "sim";
 const uint32_t kFrameMs = 50;
 

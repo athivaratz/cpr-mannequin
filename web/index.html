@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0E0F13">
-  <title>หุ่นฝึก CPR · แผงฝึกการกดหน้าอก</title>
+  <title>CPR Smart Chest · แผงฝึกการกดหน้าอก</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='7' fill='%238B7CFF'/%3E%3Cpath d='M12 19s-6-4.2-6-8.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 6 2.6C18 14.8 12 19 12 19Z' fill='white'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=1.4.0">
   <script>
     (function () {
       try {
@@ -248,7 +248,7 @@
     <header class="appbar">
       <div class="brand">
         <span class="brand-mark"><svg class="ic" aria-hidden="true"><use href="#i-heart-pulse"></use></svg></span>
-        <h1 class="brand-title">หุ่นฝึก CPR</h1>
+        <h1 class="brand-title">CPR Smart Chest</h1>
       </div>
       <div class="appbar-actions">
         <button type="button" class="conn-pill" id="connPill" data-state="off" aria-label="สถานะการเชื่อมต่อ">
@@ -281,9 +281,19 @@
         <div class="notice notice-warn" id="warnHx" hidden>
           <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-scale"></use></svg></span>
           <span class="notice-copy">
-            <span>ไม่เจอเครื่องชั่ง</span>
-            <small>เช็กสาย HX711</small>
+            <span id="warnHxTitle">ไม่เจอเครื่องชั่ง</span>
+            <small id="warnHxSub">เช็กสาย HX711</small>
           </span>
+        </div>
+        <div class="notice notice-warn" id="warnZeroStuck" hidden>
+          <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"></use></svg></span>
+          <span class="notice-copy">
+            <span>ค่าน้ำหนักนิ่งที่ 0 กก. นานเกินไป</span>
+            <small>เช็คสายและบอร์ดเซนเซอร์ HX711</small>
+          </span>
+          <button type="button" class="info-btn tiny" id="warnZeroDevBtn" aria-label="เปิดหน้าสำหรับผู้พัฒนา">
+            <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
         </div>
         <div class="notice notice-bad" id="warnOverload" hidden>
           <span class="notice-ico"><svg class="ic" aria-hidden="true"><use href="#i-zap"></use></svg></span>
@@ -293,11 +303,19 @@
       </div>
 
       <div class="screen-grid">
-        <div class="mode" id="modeSwitch" role="group" aria-label="เลือกโหมดการฝึก">
-          <span class="mode-pill" aria-hidden="true"></span>
-          <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">อิสระ</button>
-          <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">30:2</button>
-          <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">2 นาที</button>
+        <div class="mode-stack">
+          <div class="mode" id="modeSwitch" role="group" aria-label="เลือกโหมดการฝึก">
+            <span class="mode-pill" aria-hidden="true"></span>
+            <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">อิสระ</button>
+            <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">30:2</button>
+            <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">2 นาที</button>
+          </div>
+          <div class="autostart-row" id="autoStartRow">
+            <span class="autostart-label">เริ่มการฝึกอัตโนมัติ</span>
+            <button type="button" class="switch" id="autoStartSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดการเริ่มฝึกอัตโนมัติ">
+              <span class="switch-knob"></span>
+            </button>
+          </div>
         </div>
 
         <div class="main-left">
@@ -677,7 +695,7 @@
               </div>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="metroRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-music"></use></svg></span>
               <span class="row-label">เสียงจังหวะ</span>
               <button type="button" class="switch" id="metroSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
@@ -687,7 +705,7 @@
           </div>
 
           <div class="settings-group">
-            <div class="row">
+            <div class="row row-clickable" id="settingsConnectRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use id="settingsConnIconUse" href="#i-wifi"></use></svg></span>
               <span class="row-label">เชื่อมต่อ</span>
               <button type="button" class="row-action" id="settingsConnectBtn">
@@ -696,7 +714,7 @@
               </button>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="calibRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"></use></svg></span>
               <span class="row-label">ปรับเทียบ</span>
               <button type="button" class="row-action" id="openCalibBtn" aria-label="เปิดการปรับเทียบ">
@@ -704,7 +722,7 @@
               </button>
             </div>
 
-            <div class="row" id="thRow">
+            <div class="row row-clickable" id="thRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-gauge"></use></svg></span>
               <span class="row-label">เกณฑ์</span>
               <button type="button" class="row-action" id="openThBtn" aria-label="ตั้งเกณฑ์น้ำหนัก">
@@ -712,7 +730,15 @@
               </button>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="devRow">
+              <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-scale"></use></svg></span>
+              <span class="row-label">สำหรับผู้พัฒนา</span>
+              <button type="button" class="row-action" id="openDevBtn" aria-label="เปิดหน้าสำหรับผู้พัฒนา">
+                <svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </button>
+            </div>
+
+            <div class="row row-clickable" id="aboutRow" data-info="about">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-info"></use></svg></span>
               <span class="row-label">เกี่ยวกับ</span>
               <button type="button" class="row-action" data-info="about" aria-label="เกี่ยวกับหุ่นฝึก">
@@ -859,6 +885,92 @@
       </footer>
     </section>
 
+    <section class="sheet sheet-dev" id="sheetDev" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="devTitle" hidden>
+      <header class="sheet-head">
+        <div>
+          <h2 id="devTitle">สำหรับผู้พัฒนา</h2>
+        </div>
+        <button type="button" class="round-btn sheet-close" data-close="1" aria-label="ปิดหน้าสำหรับผู้พัฒนา">
+          <svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+      <div class="sheet-body" id="devBody">
+        <div class="dev-hero" id="devHero" data-tone="idle">
+          <div class="dev-hero-top">
+            <span class="dev-hero-label">น้ำหนักสดจากเซนเซอร์ (Raw)</span>
+            <span class="pill small" id="devHealthPill" data-tone="idle">
+              <svg class="ic pill-ic" aria-hidden="true"><use id="devHealthIcon" href="#i-info"></use></svg>
+              <span id="devHealthText">รอข้อมูล</span>
+            </span>
+          </div>
+          <div class="dev-kg-row">
+            <span class="dev-kg-val" id="devRawKg">—</span>
+            <span class="dev-kg-unit">กก.</span>
+          </div>
+          <p class="dev-kg-sub" id="devFiltKg">หลังกรอง — กก.</p>
+        </div>
+
+        <div class="dev-alert" id="devAlert" data-tone="warn" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"></use></svg>
+          <span id="devAlertText"></span>
+        </div>
+
+        <div class="dev-grid">
+          <div class="dev-stat">
+            <span class="dev-stat-label">ต่ำสุด (Min)</span>
+            <strong class="dev-stat-val" id="devMinKg">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">สูงสุด (Max)</span>
+            <strong class="dev-stat-val" id="devMaxKg">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">นิ่งที่ 0 กก.</span>
+            <strong class="dev-stat-val" id="devZeroSec">0.0 วิ</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">อัตราอ่าน</span>
+            <strong class="dev-stat-val" id="devSps">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">สถานะ HX711</span>
+            <strong class="dev-stat-val" id="devHxStatus">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">รีบูต HX711</span>
+            <strong class="dev-stat-val" id="devHxReboots">0 ครั้ง</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">Raw ADC</span>
+            <strong class="dev-stat-val" id="devHxRaw">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">Offset</span>
+            <strong class="dev-stat-val" id="devHxOff">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">Scale Factor</span>
+            <strong class="dev-stat-val" id="devHxScale">—</strong>
+          </div>
+          <div class="dev-stat">
+            <span class="dev-stat-label">ระบบ (Diag)</span>
+            <strong class="dev-stat-val" id="devSys">—</strong>
+          </div>
+        </div>
+      </div>
+      <footer class="sheet-foot dev-foot">
+        <button type="button" class="btn btn-primary btn-sm" id="devTareBtn">
+          <svg class="ic" aria-hidden="true"><use href="#i-target"></use></svg>
+          <span>ตั้งศูนย์</span>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="devRebootBtn">
+          <svg class="ic" aria-hidden="true"><use href="#i-rotate-ccw"></use></svg>
+          <span>รีบูต HX711</span>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="devClearBtn">ล้าง Min/Max</button>
+      </footer>
+    </section>
+
     <section class="sheet sheet-info" id="sheetInfo" role="dialog" aria-modal="true" tabindex="-1" aria-labelledby="sheetInfoTitle" hidden>
       <header class="sheet-head info-head">
         <span class="ico big" id="infoHeadIcon"><svg class="ic ic-lg" aria-hidden="true"><use id="infoHeadUse" href="#i-info"></use></svg></span>
@@ -875,6 +987,6 @@
     </section>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.4.0"></script>
 </body>
 </html>

@@ -1056,6 +1056,37 @@ void test_score() {
   TEST_ASSERT_EQUAL_INT(81, cpr::score(st));
 }
 
+void test_autostart_off() {
+  cpr::Engine engine;
+  cpr::Config cfg = cpr::defaultConfig(cpr::Profile::Child);
+  cpr::CalibrationData cal;
+  cpr::calibDefaults(cal);
+  engine.begin(cfg, cal);
+  engine.setAutoStart(false);
+  TEST_ASSERT_FALSE(engine.autoStart());
+
+  // Pressing without startSession() must not activate a session.
+  const float press[] = {0.0f, 3.0f, 8.0f, 8.0f, 4.0f, 0.2f, 0.0f, 0.0f, 0.0f, 0.0f};
+  uint32_t t = 0;
+  for (unsigned i = 0; i < sizeof(press) / sizeof(press[0]); ++i) {
+    cpr::Sample s = {t, press[i], -1, true};
+    engine.process(s);
+    t += 50;
+  }
+  TEST_ASSERT_FALSE(engine.live().sessionActive);
+  TEST_ASSERT_EQUAL_UINT16(0, engine.stats().count);
+
+  // Calling startSession() arms the engine so the next press starts it.
+  engine.startSession(t);
+  for (unsigned i = 0; i < sizeof(press) / sizeof(press[0]); ++i) {
+    cpr::Sample s = {t, press[i], -1, true};
+    engine.process(s);
+    t += 50;
+  }
+  TEST_ASSERT_TRUE(engine.live().sessionActive);
+  TEST_ASSERT_EQUAL_UINT16(1, engine.stats().count);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_filter);
@@ -1091,5 +1122,6 @@ int main(int, char**) {
   RUN_TEST(test_json_config_worst_case);
   RUN_TEST(test_size);
   RUN_TEST(test_score);
+  RUN_TEST(test_autostart_off);
   return UNITY_END();
 }

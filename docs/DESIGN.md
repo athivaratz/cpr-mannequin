@@ -802,7 +802,7 @@ desktop, 16px phone. Grid gap 16px (24px ≥ 1024 px).
 1280 × 800:
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ [logo] หุ่นฝึก CPR      (ฝึกอิสระ|รอบ 30:2|ทดสอบ 2 นาที)   ● เชื่อมต่อแล้ว [⚙] │  top bar 64px
+│ [logo] CPR Smart Chest      (ฝึกอิสระ|รอบ 30:2|ทดสอบ 2 นาที)   ● เชื่อมต่อแล้ว [⚙] │  top bar 64px
 ├───────────────────────────────┬──────────────────────────────────────────┤
 │  HERO DEPTH GAUGE  (card)     │  RATE (card)          │ RECOIL  (card)    │
 │  vertical bar, target band    │  112 ครั้ง/นาที        │ ✓ คืนตัวสุด        │
@@ -822,7 +822,7 @@ Hero card spans the full height of the left column (about 40% width).
 390 × 844 (single column, sticky bottom action bar):
 ```
 ┌──────────────────────────┐
-│ หุ่นฝึก CPR      ● [⚙]   │
+│ CPR Smart Chest      ● [⚙]   │
 │ (ฝึกอิสระ|30:2|2 นาที)    │ segmented control, scrolls horizontally if needed
 ├──────────────────────────┤
 │  HERO GAUGE (horizontal  │ big number + chip, bar below

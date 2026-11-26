@@ -21,6 +21,8 @@ class Engine {
   void setFastFilter(bool on);
   void setMode(Mode m);
   void setTofPresent(bool present);
+  void setAutoStart(bool on);
+  bool autoStart() const;
   void startSession(uint32_t tMs);
   void endSession(uint32_t tMs);
   void process(const Sample& s);
@@ -88,6 +90,8 @@ class Engine {
   bool inPause_ : 1;
   bool calActive_ : 1;
   bool pressInProgress_ : 1;
+  bool autoStart_ : 1;
+  bool sessionArmed_ : 1;
 
   uint32_t sessionStartMs_;
   uint32_t lastPressActivityMs_;

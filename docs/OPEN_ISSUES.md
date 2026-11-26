@@ -179,3 +179,25 @@ engineering values (tunable), not clinical numbers:
 - `usb active` and `usb idle` are handled directly in `src/esp32/net.cpp`
   (same pattern as `serial on` / `serial off`) so `lib/cpr_core` and Nano
   firmware remain unchanged.
+
+## HX711 startup/reconnect zero-check, PD_SCK reboot, and Developer UI
+
+Because the ESP32 wiring (`src/esp32/pins.h`) connects only `DT` (GPIO 16) and
+`SCK` (GPIO 17) to the HX711 (VCC is tied directly to 3.3 V), rebooting the
+HX711 uses the datasheet PD_SCK power-down reset (holding `PD_SCK` HIGH for
+more than 60 us, then releasing LOW). These constants in
+`src/esp32/sensors.cpp` and `web/app.js` are engineering values (tunable), not
+clinical numbers:
+
+- `kHxResetPulseMs = 10` (10 ms PD_SCK HIGH pulse to reset the HX711).
+- `kHxBootMaxAttempts = 3` (boot-time power-cycle + tare + zero-check retries
+  before falling back to non-blocking background recovery).
+- `kHxZeroCheckSamples = 4` (post-tare samples verified before marking HX711
+  present).
+- `kHxZeroCheckMinKg = -1.0f`, `kHxZeroCheckMaxKg = 1.0f` (allowed resting
+  weight range after tare on boot or hot-plug reconnect; out-of-range or
+  saturated readings trigger a fresh tare or HX711 reboot).
+- `ZERO_STUCK_WARN_MS = 5000` (5 s in `web/app.js`: warns when the live sensor
+  reading stays at `0.00 kg` continuously while connected to hardware).
+- `rkg`, `hxs`, and `hx reset` are handled in `src/esp32/` so `lib/cpr_core`
+  and the Nano build remain untouched.
