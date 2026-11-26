@@ -701,7 +701,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
-        if os.path.basename(full) == "index.html":
+        if os.path.splitext(full)[1].lower() in (".html", ".js", ".css"):
             self.send_header("Cache-Control", "no-cache")
         else:
             self.send_header("Cache-Control", "max-age=86400")

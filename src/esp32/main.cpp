@@ -18,7 +18,7 @@
 
 namespace {
 
-constexpr const char* kFirmwareVersion = "1.3.0";
+constexpr const char* kFirmwareVersion = "1.4.0";
 constexpr const char* kDefaultWifiPass = "cprtrain123";
 constexpr size_t kOutQueueLength = 24;
 constexpr size_t kOutLineLength = cpr::kMaxJsonLine + 8;
@@ -114,6 +114,17 @@ bool startsWithSet(const char* line) {
     if (*line == '\0' || lowerAscii(*line) != *prefix) return false;
   }
   return true;
+}
+
+bool isHxResetCommand(const char* line) {
+  if (line == nullptr) return false;
+  while (*line == ' ' || *line == '\t') line++;
+  const char* expected = "hx reset";
+  for (; *expected; ++expected, ++line) {
+    if (*line == '\0' || lowerAscii(*line) != *expected) return false;
+  }
+  while (*line == ' ' || *line == '\t' || *line == '\r' || *line == '\n') line++;
+  return *line == '\0';
 }
 
 void lowerWord(char* s) {
@@ -329,6 +340,12 @@ void handleCommand(const char* line) {
     handleSet(line);
     return;
   }
+  if (isHxResetCommand(line)) {
+    g_sensors.requestHxReboot(millis());
+    sendAck("hx reset", true, "ok");
+    sendConfig();
+    return;
+  }
 
   cpr::Command command;
   if (!cpr::parseCommand(line, command)) {
@@ -481,9 +498,29 @@ void pollEvents() {
 
 void sendFrame() {
   char buffer[kOutLineLength];
-  if (cpr::jsonFrame(buffer, sizeof(buffer), g_engine.live()) != 0) {
-    net::setFrame(buffer);
+  const size_t baseLen = cpr::jsonFrame(buffer, sizeof(buffer), g_engine.live());
+  if (baseLen == 0) return;
+
+  // Append ESP32-only raw signed 2-decimal kg and HX711 health status so
+  // lib/cpr_core and Nano builds stay untouched.
+  if (baseLen > 1 && buffer[baseLen - 1] == '}') {
+    char extra[48];
+    const float rawKg = g_sensors.lastRawKg();
+    const unsigned hxs = (unsigned)g_sensors.hxStatus();
+    int extraLen = 0;
+    if (isfinite(rawKg) && fabsf(rawKg) < 999999.0f) {
+      extraLen = snprintf(extra, sizeof(extra), ",\"rkg\":%.2f,\"hxs\":%u}",
+                          (double)rawKg, hxs);
+    } else {
+      extraLen = snprintf(extra, sizeof(extra), ",\"rkg\":null,\"hxs\":%u}", hxs);
+    }
+    if (extraLen > 0 && (size_t)extraLen < sizeof(extra) &&
+        (baseLen - 1) + (size_t)extraLen <= cpr::kMaxJsonLine) {
+      memcpy(buffer + baseLen - 1, extra, (size_t)extraLen + 1);
+    }
   }
+
+  net::setFrame(buffer);
 }
 
 void sampleTask(void*) {
@@ -532,7 +569,10 @@ void sampleTask(void*) {
     g_feedback.tick(now);
 
     pollEvents();
-    net::setDiagSensor(g_engine.live().sps, g_sensors.hx711Present());
+    net::setDiagSensor(g_engine.live().sps, g_sensors.hx711Present(),
+                       g_sensors.lastRawAdc(), g_sensors.hxOffset(),
+                       g_sensors.scale(), g_sensors.hxRebootCount(),
+                       (uint8_t)g_sensors.hxStatus());
 
     if (!haveFrameTime ||
         (uint32_t)(now - lastFrameMs) >= kFramePeriodMs) {

@@ -71,6 +71,12 @@ volatile uint32_t g_sSkip = 0;
 volatile uint32_t g_fDrop = 0;
 volatile uint8_t g_diagSps = 0;
 volatile bool g_diagHx = false;
+portMUX_TYPE g_diagMux = portMUX_INITIALIZER_UNLOCKED;
+long g_diagRawAdc = 0;
+long g_diagOffset = 0;
+float g_diagScale = 1.0f;
+uint16_t g_diagHxReboots = 0;
+uint8_t g_diagHxStatus = 1;
 
 uint32_t g_rxWindowStart = 0;
 uint16_t g_rxWindowCount = 0;
@@ -340,6 +346,12 @@ void handleSerialLine(char* text) {
     return;
   }
 
+  if (equalsIgnoreCase(line, "hx reset")) {
+    net::setSerialStreaming(true);
+    forwardSerialLine(line);
+    return;
+  }
+
   cpr::Command command;
   const bool parsed = cpr::parseCommand(line, command);
   if (parsed) {
@@ -455,17 +467,32 @@ void sendDiag(uint32_t now) {
   const bool wantSerial = g_serialStreaming && usbAllowed();
   if (!wantWs && !wantSerial) return;
 
-  char buffer[208];
+  long rawAdc = 0;
+  long offset = 0;
+  float scale = 1.0f;
+  uint16_t hxReboots = 0;
+  uint8_t hxStatus = 1;
+  portENTER_CRITICAL(&g_diagMux);
+  rawAdc = g_diagRawAdc;
+  offset = g_diagOffset;
+  scale = g_diagScale;
+  hxReboots = g_diagHxReboots;
+  hxStatus = g_diagHxStatus;
+  portEXIT_CRITICAL(&g_diagMux);
+
+  char buffer[288];
   const int written = snprintf(
       buffer, sizeof(buffer),
       "{\"ty\":\"diag\",\"up\":%lu,\"rx\":%lu,\"rxBad\":%lu,\"qDrop\":%lu,"
       "\"sSkip\":%lu,\"fDrop\":%lu,\"sps\":%u,\"heap\":%lu,\"ser\":%d,"
-      "\"hx\":%d,\"wifi\":%d}",
+      "\"hx\":%d,\"wifi\":%d,\"hxs\":%u,\"hxRaw\":%ld,\"hxOff\":%ld,"
+      "\"hxSc\":%.1f,\"hxRst\":%u}",
       (unsigned long)(now / 1000UL), (unsigned long)g_rxCount,
       (unsigned long)g_rxBad, (unsigned long)g_qDrop, (unsigned long)g_sSkip,
       (unsigned long)g_fDrop, (unsigned)g_diagSps,
       (unsigned long)ESP.getFreeHeap(), g_serialStreaming ? 1 : 0,
-      g_diagHx ? 1 : 0, g_wifiEnabled ? 1 : 0);
+      g_diagHx ? 1 : 0, g_wifiEnabled ? 1 : 0, (unsigned)hxStatus, rawAdc,
+      offset, (double)scale, (unsigned)hxReboots);
   if (written <= 0 || (size_t)written >= sizeof(buffer)) return;
 
   if (wantWs) {
@@ -556,9 +583,17 @@ void setFrame(const char* line) {
   portEXIT_CRITICAL(&g_frameMux);
 }
 
-void setDiagSensor(uint8_t sps, bool hxPresent) {
+void setDiagSensor(uint8_t sps, bool hxPresent, long rawAdc, long offset,
+                   float scale, uint16_t rebootCount, uint8_t hxStatus) {
   g_diagSps = sps;
   g_diagHx = hxPresent;
+  portENTER_CRITICAL(&g_diagMux);
+  g_diagRawAdc = rawAdc;
+  g_diagOffset = offset;
+  g_diagScale = scale;
+  g_diagHxReboots = rebootCount;
+  g_diagHxStatus = hxStatus;
+  portEXIT_CRITICAL(&g_diagMux);
 }
 
 void noteQueueDrop() { g_qDrop++; }

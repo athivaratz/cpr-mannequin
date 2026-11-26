@@ -158,7 +158,7 @@ closed (the screenshot script waits for `#sheetX:not([hidden])`).
 Nav items (3): **ฝึก** (heart-pulse, the live screen), **ผล** (trophy, opens
 the summary sheet with the last `sum`; when there is none it opens with an
 empty state "ยังไม่มีผล · กดเริ่มฝึกก่อน"), **ตั้งค่า** (settings sheet). The
-app bar keeps only: brand mark + "หุ่นฝึก CPR", the connection pill, and the
+app bar keeps only: brand mark + "CPR Smart Chest", the connection pill, and the
 metronome round button.
 
 ### 5.2 Breakpoints
@@ -401,7 +401,7 @@ Info sheet bodies (keys from §6.8). Keep them like this, short.
 - **ccf** (used inside **score**) — "ต่อเนื่อง คือสัดส่วนเวลาที่ยังกดอยู่ ควรได้อย่างน้อย 60% และหยุดแต่ละครั้งไม่เกิน 10 วินาที"
 - **score** — **คะแนนมาจากไหน**: a stacked horizontal bar (height 12px, `--r-pill`, 5 segments with 2px gaps) with the weights **ลึก 30 · จังหวะ 25 · คืนตัว 20 · มือ 10 · ต่อเนื่อง 15**, each segment in its own color (use: --accent, --ok, #4FC3F7 (light #0284C7), --warn, --accent-2), then a legend of colored dots with the label and %. Under it the ccf line above, then in --text-3: "น้ำหนักคะแนนทีมตั้งเอง ไม่ใช่เกณฑ์ทางการ"
 - **sps** — **เซนเซอร์อ่านช้า**: "เซนเซอร์แรงอ่านได้แค่ 10 ครั้งต่อวินาที ค่าที่เห็นจะคลาดเคลื่อน แก้ได้โดยย้ายขา RATE ของบอร์ด HX711 ไปต่อไฟเลี้ยง ดูวิธีทำในคู่มือหัวข้อแก้ปัญหา"
-- **about** — **เกี่ยวกับ**: "หุ่นฝึก CPR เด็ก โครงงานโรงเรียน" / shield-check + "สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์" / then board, firmware version and transport from `cfg` in --text-3.
+- **about** — **เกี่ยวกับ**: "CPR Smart Chest" / shield-check + "สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์" / then board, firmware version and transport from `cfg` in --text-3.
 
 Connection pill text: **เดโม · เชื่อมต่อแล้ว · กำลังต่อ · ไม่ได้ต่อ**.
 Toasts/acks: keep v1 texts but no longer than ~20 characters.

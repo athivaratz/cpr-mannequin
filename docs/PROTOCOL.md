@@ -144,6 +144,7 @@ case-insensitive. Blank lines are ignored.
 | `set th <good> <deep> <over> <contact> <recoil> <filt>` | Set all six user thresholds in kg. |
 | `set <key> <value>` | Set one threshold. Keys: `good`, `deep`, `over`, `contact`, `recoil`, `filter`. |
 | `set reset` | Restore the default user thresholds. |
+| `hx reset` | ESP32 only. Power-cycle the HX711 via PD_SCK, clear the offset, and run a fresh tare + `-1..+1 kg` zero-range check. |
 | `serial on` / `serial off` | Start or stop USB output. Serial input only. |
 | `usb active` / `usb idle` | ESP32 Serial only. `usb active` enters/renews USB web mode (turns off Wi-Fi AP, 10 s lease); `usb idle` exits immediately and re-enables Wi-Fi AP. Silent (no `ack`). |
 | `config` | Return the current configuration. |
@@ -250,6 +251,8 @@ Sent at 20 Hz.
 | `lsps` | low sample rate flag, below 8 samples/s after two full 1-second buckets |
 | `act` | session active |
 | `el` | seconds since the session's first compression |
+| `rkg` | ESP32 only: unfiltered, signed load-cell reading in kg with two decimals, or `null` |
+| `hxs` | ESP32 only: HX711 health status (`0` OK, `1` not found, `2` recovering/taring, `3` zero-check failed / rebooting) |
 
 ### `c` — compression
 
@@ -392,7 +395,8 @@ events.
 
 ```
 {"ty":"diag","up":312,"rx":0,"rxBad":0,"qDrop":0,"sSkip":0,"fDrop":0,
- "sps":10,"heap":180000,"ser":1,"hx":1,"wifi":1}
+ "sps":10,"heap":180000,"ser":1,"hx":1,"wifi":1,"hxs":0,"hxRaw":123456,
+ "hxOff":123400,"hxSc":10000.0,"hxRst":0}
 ```
 
 | Field | Meaning |
@@ -408,6 +412,11 @@ events.
 | `ser` | USB output streaming is on (`1`) or off (`0`) |
 | `hx` | HX711 is present (`1`) or not (`0`) |
 | `wifi` | Wi-Fi AP is on (`1`) or off (`0`, e.g. while in USB web mode) |
+| `hxs` | HX711 health status (`0` OK, `1` not found, `2` recovering/taring, `3` zero-check failed) |
+| `hxRaw` | latest raw 24-bit ADC reading from the HX711 |
+| `hxOff` | active HX711 tare offset in ADC counts |
+| `hxSc` | active HX711 scale factor |
+| `hxRst` | count of automatic or manual HX711 power-cycle resets since boot |
 
 A charger-only setup can make `rx` and `rxBad` climb from noise on the USB
 chip. That is harmless now because frames go to Wi-Fi first and USB output is
