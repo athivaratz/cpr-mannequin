@@ -346,7 +346,9 @@ void handleSerialLine(char* text) {
     return;
   }
 
-  if (equalsIgnoreCase(line, "hx reset")) {
+  if (equalsIgnoreCase(line, "hx reset") ||
+      equalsIgnoreCase(line, "autostart on") ||
+      equalsIgnoreCase(line, "autostart off")) {
     net::setSerialStreaming(true);
     forwardSerialLine(line);
     return;

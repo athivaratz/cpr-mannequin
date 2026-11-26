@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0E0F13">
   <title>CPR Smart Chest · แผงฝึกการกดหน้าอก</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='7' fill='%238B7CFF'/%3E%3Cpath d='M12 19s-6-4.2-6-8.4A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 6 2.6C18 14.8 12 19 12 19Z' fill='white'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="app.css?v=1.3.1">
+  <link rel="stylesheet" href="app.css?v=1.4.0">
   <script>
     (function () {
       try {
@@ -303,11 +303,19 @@
       </div>
 
       <div class="screen-grid">
-        <div class="mode" id="modeSwitch" role="group" aria-label="เลือกโหมดการฝึก">
-          <span class="mode-pill" aria-hidden="true"></span>
-          <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">อิสระ</button>
-          <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">30:2</button>
-          <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">2 นาที</button>
+        <div class="mode-stack">
+          <div class="mode" id="modeSwitch" role="group" aria-label="เลือกโหมดการฝึก">
+            <span class="mode-pill" aria-hidden="true"></span>
+            <button type="button" class="mode-btn is-active" data-mode="free" aria-pressed="true">อิสระ</button>
+            <button type="button" class="mode-btn" data-mode="cycle" aria-pressed="false">30:2</button>
+            <button type="button" class="mode-btn" data-mode="test" aria-pressed="false">2 นาที</button>
+          </div>
+          <div class="autostart-row" id="autoStartRow">
+            <span class="autostart-label">เริ่มการฝึกอัตโนมัติ</span>
+            <button type="button" class="switch" id="autoStartSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดการเริ่มฝึกอัตโนมัติ">
+              <span class="switch-knob"></span>
+            </button>
+          </div>
         </div>
 
         <div class="main-left">
@@ -687,7 +695,7 @@
               </div>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="metroRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-music"></use></svg></span>
               <span class="row-label">เสียงจังหวะ</span>
               <button type="button" class="switch" id="metroSwitch" role="switch" aria-checked="false" aria-label="เปิดหรือปิดเสียงจังหวะ">
@@ -697,7 +705,7 @@
           </div>
 
           <div class="settings-group">
-            <div class="row">
+            <div class="row row-clickable" id="settingsConnectRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use id="settingsConnIconUse" href="#i-wifi"></use></svg></span>
               <span class="row-label">เชื่อมต่อ</span>
               <button type="button" class="row-action" id="settingsConnectBtn">
@@ -706,7 +714,7 @@
               </button>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="calibRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"></use></svg></span>
               <span class="row-label">ปรับเทียบ</span>
               <button type="button" class="row-action" id="openCalibBtn" aria-label="เปิดการปรับเทียบ">
@@ -714,7 +722,7 @@
               </button>
             </div>
 
-            <div class="row" id="thRow">
+            <div class="row row-clickable" id="thRow">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-gauge"></use></svg></span>
               <span class="row-label">เกณฑ์</span>
               <button type="button" class="row-action" id="openThBtn" aria-label="ตั้งเกณฑ์น้ำหนัก">
@@ -730,7 +738,7 @@
               </button>
             </div>
 
-            <div class="row">
+            <div class="row row-clickable" id="aboutRow" data-info="about">
               <span class="row-ico"><svg class="ic" aria-hidden="true"><use href="#i-info"></use></svg></span>
               <span class="row-label">เกี่ยวกับ</span>
               <button type="button" class="row-action" data-info="about" aria-label="เกี่ยวกับหุ่นฝึก">
@@ -979,6 +987,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=1.3.1"></script>
+  <script src="app.js?v=1.4.0"></script>
 </body>
 </html>

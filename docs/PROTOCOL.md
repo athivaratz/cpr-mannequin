@@ -145,6 +145,7 @@ case-insensitive. Blank lines are ignored.
 | `set <key> <value>` | Set one threshold. Keys: `good`, `deep`, `over`, `contact`, `recoil`, `filter`. |
 | `set reset` | Restore the default user thresholds. |
 | `hx reset` | ESP32 only. Power-cycle the HX711 via PD_SCK, clear the offset, and run a fresh tare + `-1..+1 kg` zero-range check. |
+| `autostart on` / `autostart off` | ESP32 only. Enable or disable automatic session start on the first compression (`off` requires explicit `start`). |
 | `serial on` / `serial off` | Start or stop USB output. Serial input only. |
 | `usb active` / `usb idle` | ESP32 Serial only. `usb active` enters/renews USB web mode (turns off Wi-Fi AP, 10 s lease); `usb idle` exits immediately and re-enables Wi-Fi AP. Silent (no `ack`). |
 | `config` | Return the current configuration. |

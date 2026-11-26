@@ -33,6 +33,8 @@ Engine::Engine() {
   sessionActive_ = false;
   inPause_ = false;
   calActive_ = false;
+  autoStart_ = true;
+  sessionArmed_ = false;
   sessionStartMs_ = 0;
   lastPressActivityMs_ = 0;
   lastPressFinishMs_ = 0;
@@ -84,6 +86,8 @@ void Engine::begin(const Config& cfg, const CalibrationData& cal) {
   sessionActive_ = false;
   inPause_ = false;
   calActive_ = false;
+  autoStart_ = true;
+  sessionArmed_ = false;
   sessionStartMs_ = 0;
   lastPressActivityMs_ = 0;
   lastPressFinishMs_ = 0;
@@ -120,12 +124,17 @@ void Engine::setMode(Mode m) {
 
 void Engine::setTofPresent(bool present) { tofPresent_ = present; }
 
+void Engine::setAutoStart(bool on) { autoStart_ = on; }
+
+bool Engine::autoStart() const { return autoStart_; }
+
 void Engine::startSession(uint32_t tMs) {
   stats_.reset();
   training_.reset(mode_);
   rate_.reset();
   compIndex_ = 0;
   sessionActive_ = false;
+  sessionArmed_ = true;
   inPause_ = false;
   sessionStartMs_ = 0;
   lastPressActivityMs_ = tMs;
@@ -138,6 +147,7 @@ void Engine::endSession(uint32_t tMs) {
   pushEvent(e);
   stats_.touch(tMs);
   sessionActive_ = false;
+  sessionArmed_ = false;
   inPause_ = false;
 }
 
@@ -261,6 +271,7 @@ void Engine::handleResult(uint32_t tMs) {
 
 void Engine::handlePressStart(uint32_t tMs) {
   if (!sessionActive_) {
+    if (!autoStart_ && !sessionArmed_) return;
     stats_.reset();
     training_.reset(mode_);
     rate_.reset();
@@ -268,6 +279,7 @@ void Engine::handlePressStart(uint32_t tMs) {
     inPause_ = false;
     sessionStartMs_ = tMs;
     sessionActive_ = true;
+    sessionArmed_ = false;
   } else if (inPause_) {
     uint32_t pauseMs = (tMs >= lastPressFinishMs_) ? (tMs - lastPressFinishMs_) : 0;
     Event pe;
@@ -383,6 +395,7 @@ void Engine::process(const Sample& s) {
     pushEvent(e);
     stats_.touch(t);
     sessionActive_ = false;
+    sessionArmed_ = false;
     inPause_ = false;
   }
 
@@ -392,6 +405,7 @@ void Engine::process(const Sample& s) {
       pushEvent(e);
       stats_.touch(t);
       sessionActive_ = false;
+      sessionArmed_ = false;
       inPause_ = false;
     }
   }

@@ -84,6 +84,8 @@
     overloadUntil: 0,
     lowSps: false,
     sessionActive: false,
+    sessionArmed: false,
+    autoStart: false,
     metronome: false,
     rateLevel: 0,
     count: 0,
@@ -127,7 +129,8 @@
 
   function cacheEls() {
     const ids = [
-      'connPill', 'connText', 'metroBtn', 'appNav', 'modeSwitch', 'heroCard',
+      'connPill', 'connText', 'metroBtn', 'appNav', 'modeSwitch', 'autoStartRow',
+      'autoStartSwitch', 'heroCard',
       'tiles', 'depthValue', 'depthUnit', 'depthPill', 'depthPillIcon', 'depthPillText',
       'depthHint', 'ruler', 'rulerSvg', 'rulerMarker', 'rulerCaret', 'ctaBtn',
       'ctaTitle', 'ctaSub', 'ctaIconUse', 'rateTile', 'rateValue', 'ratePill',
@@ -156,7 +159,8 @@
       'metricHand', 'metricCcf', 'mDepth', 'mRate', 'mRecoil', 'mHand', 'mCcf',
       'mDepthRing', 'mRateRing', 'mRecoilRing', 'mHandRing', 'mCcfRing',
       'summaryFacts', 'csvBtn', 'againBtn', 'goPracticeBtn', 'settingsConnText',
-      'settingsConnectBtn', 'settingsConnIconUse', 'metroSwitch', 'themeIconUse',
+      'settingsConnectBtn', 'settingsConnectRow', 'settingsConnIconUse',
+      'metroRow', 'metroSwitch', 'calibRow', 'aboutRow', 'themeIconUse',
       'profileIconUse', 'openCalibBtn', 'calibStepper', 'calibPanel',
       'calibStatus', 'calibActions', 'sheetInfoTitle', 'sheetInfoBody',
       'infoHeadUse'
@@ -929,7 +933,7 @@
         this.onMessage && this.onMessage(ack, { instant: false, at: null });
         return;
       }
-      if (cmd === 'metro') msg = /\bon\b/i.test(line) ? 'on' : 'off';
+      if (cmd === 'metro' || cmd === 'autostart') msg = /\bon\b/i.test(line) ? 'on' : 'off';
       if (cmd === 'config') {
         this.emitCfg();
         msg = 'ok';
@@ -1262,10 +1266,14 @@
     if ((status === 'connected' || status === 'demo') && state.sheet === 'connect') {
       closeSheet();
     }
+    if (status === 'connected' && state.transport) {
+      state.transport.send('autostart ' + (state.autoStart ? 'on' : 'off'));
+    }
     if (status === 'off' && previous !== 'off') {
       resetSession(true);
     }
     refreshInfoPanels();
+    if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
   }
 
   function attachTransport(transport, kind) {
@@ -1295,6 +1303,7 @@
     state.overloadUntil = 0;
     state.lowSps = false;
     state.sessionActive = false;
+    state.sessionArmed = false;
     state.rateLevel = 0;
     state.count = 0;
     state.cc = 0;
@@ -1321,6 +1330,7 @@
     refreshProfileButtons();
     refreshConfigUI();
     refreshThConfig();
+    if (state.sheet === 'info' && state.infoKey === 'about') populateInfo();
   }
 
   function applyFrame(msg, meta) {
@@ -1344,6 +1354,7 @@
     state.lowSps = !!msg.lsps;
     state.overload = !!msg.ov;
     state.sessionActive = !!msg.act;
+    if (state.sessionActive) state.sessionArmed = false;
     if (msg.ov) state.overloadUntil = msg.t + 2200;
 
     if (msg.ps && !state.pauseActive) {
@@ -1463,6 +1474,7 @@
         break;
       case 'end':
         state.sessionActive = false;
+        state.sessionArmed = false;
         state.pauseActive = false;
         state.pauseStart = null;
         break;
@@ -1698,6 +1710,19 @@
     if (send && state.transport) state.transport.send('metro ' + (state.metronome ? 'on' : 'off'));
   }
 
+  function setAutoStart(on, send, persist) {
+    state.autoStart = !!on;
+    if (els.autoStartSwitch) {
+      els.autoStartSwitch.setAttribute('aria-checked', state.autoStart ? 'true' : 'false');
+    }
+    if (persist) {
+      try { localStorage.setItem('cpr-autostart', state.autoStart ? '1' : '0'); } catch (err) { /* ignore */ }
+    }
+    if (send && state.transport && state.status !== 'off') {
+      state.transport.send('autostart ' + (state.autoStart ? 'on' : 'off'));
+    }
+  }
+
   function startSession() {
     if (!state.transport) {
       openConnect();
@@ -1708,6 +1733,7 @@
     state.lastSum = null;
     state.lastSumAt = null;
     resetSession(true);
+    state.sessionArmed = true;
     state.transport.send('start');
     showToast('เริ่มรอบใหม่', 'ok');
   }
@@ -1718,6 +1744,7 @@
       return;
     }
     if (state.sheet === 'summary') closeSheet();
+    state.sessionArmed = false;
     const seq = state.sumSeq;
     state.transport.send('stop');
     clearTimeout(state.stopTimer);
@@ -1796,8 +1823,16 @@
 
   function updateCta() {
     const active = state.sessionActive;
-    setText(els.ctaTitle, active ? 'จบรอบ' : 'เริ่มฝึก');
-    setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    if (active) {
+      setText(els.ctaTitle, 'จบรอบ');
+      setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    } else if (state.sessionArmed) {
+      setText(els.ctaTitle, 'พร้อมเริ่มฝึก');
+      setText(els.ctaSub, 'กดหน้าอกเพื่อเริ่มจับเวลา');
+    } else {
+      setText(els.ctaTitle, 'เริ่มฝึก');
+      setText(els.ctaSub, MODE_SUB[state.mode] || MODE_SUB.free);
+    }
     setUse(els.ctaIconUse, active ? 'square' : 'play');
   }
 
@@ -2561,6 +2596,7 @@
 
   function aboutBody() {
     const cfg = state.cfg;
+    const diag = state.lastDiag;
     let board = '—';
     if (cfg && cfg.board) {
       const name = String(cfg.board);
@@ -2571,11 +2607,48 @@
       : state.transportKind === 'demo' ? 'เดโม'
         : state.transportKind === 'serial' ? 'USB'
           : isLocalPreview() ? 'USB (บริดจ์)' : 'Wi-Fi';
-    return '<p>CPR Smart Chest</p>' +
-      '<div class="disclaimer"><svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
-      '<span>สื่อการเรียนรู้ ไม่ใช่เครื่องมือแพทย์</span></div>' +
-      '<p class="muted">' + board + ' · ' + fw + ' · ' + transport + '</p>' +
-      '<p class="muted about-diag">' + esc(diagSummary()) + '</p>';
+
+    let upText = '—';
+    let spsText = '—';
+    if (diag) {
+      const up = has(diag.up) ? diag.up : 0;
+      const minutes = Math.floor(up / 60);
+      upText = minutes >= 60
+        ? Math.floor(minutes / 60) + ' ชม. ' + (minutes % 60) + ' นาที'
+        : minutes >= 1 ? minutes + ' นาที' : Math.floor(up) + ' วิ';
+      spsText = (has(diag.sps) ? diag.sps : 0) + ' /วิ';
+    } else if (state.frame && has(state.frame.sps)) {
+      spsText = state.frame.sps + ' /วิ';
+    }
+
+    const connTone = state.status === 'connected' || state.status === 'demo' ? 'ok' : 'idle';
+    return '<div class="about-wrap">' +
+      '<div class="about-hero">' +
+        '<span class="about-brand-ico"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-heart-pulse"></use></svg></span>' +
+        '<div class="about-hero-copy">' +
+          '<h3 class="about-name">CPR Smart Chest</h3>' +
+          '<p class="about-tagline">หุ่นฝึกปฏิบัติการกดหน้าอกช่วยฟื้นคืนชีพ</p>' +
+          '<div class="about-badges">' +
+            '<span class="about-badge">' + board + '</span>' +
+            '<span class="about-badge">' + fw + '</span>' +
+            '<span class="about-badge is-' + connTone + '">' + esc(transport) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="about-disclaimer">' +
+        '<svg class="ic" aria-hidden="true"><use href="#i-shield-check"></use></svg>' +
+        '<span>สื่อการเรียนรู้และฝึกทักษะ ไม่ใช่เครื่องมือแพทย์</span>' +
+      '</div>' +
+      '<div class="about-grid">' +
+        '<div class="about-stat"><span>การเชื่อมต่อ</span><strong>' + esc(transport) + '</strong></div>' +
+        '<div class="about-stat"><span>เปิดเครื่องมา</span><strong>' + esc(upText) + '</strong></div>' +
+        '<div class="about-stat"><span>อัตราอ่าน</span><strong>' + esc(spsText) + '</strong></div>' +
+      '</div>' +
+      '<p class="about-diag-bar">' + esc(diagSummary()) + '</p>' +
+      '<div class="about-foot">' +
+        '<button type="button" class="btn btn-primary about-start-btn" data-close="1">เริ่มใช้งาน</button>' +
+      '</div>' +
+    '</div>';
   }
 
   function populateInfo() {
@@ -2978,7 +3051,17 @@
       });
     }
     if (els.metroBtn) els.metroBtn.addEventListener('click', () => setMetronome(!state.metronome, true));
-    if (els.metroSwitch) els.metroSwitch.addEventListener('click', () => setMetronome(!state.metronome, true));
+    if (els.metroSwitch) els.metroSwitch.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setMetronome(!state.metronome, true);
+    });
+    if (els.metroRow) els.metroRow.addEventListener('click', () => setMetronome(!state.metronome, true));
+
+    if (els.autoStartSwitch) els.autoStartSwitch.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setAutoStart(!state.autoStart, true, true);
+    });
+    if (els.autoStartRow) els.autoStartRow.addEventListener('click', () => setAutoStart(!state.autoStart, true, true));
 
     document.addEventListener('click', (event) => {
       const info = event.target.closest('[data-info]');
@@ -3019,7 +3102,11 @@
       });
     }
 
-    if (els.settingsConnectBtn) els.settingsConnectBtn.addEventListener('click', openConnect);
+    if (els.settingsConnectBtn) els.settingsConnectBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openConnect();
+    });
+    if (els.settingsConnectRow) els.settingsConnectRow.addEventListener('click', openConnect);
     if (els.connectDisconnectBtn) {
       els.connectDisconnectBtn.addEventListener('click', () => {
         if (state.transport) {
@@ -3030,8 +3117,16 @@
         setStatus('off');
       });
     }
-    if (els.openCalibBtn) els.openCalibBtn.addEventListener('click', openCalib);
-    if (els.openThBtn) els.openThBtn.addEventListener('click', openTh);
+    if (els.openCalibBtn) els.openCalibBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openCalib();
+    });
+    if (els.calibRow) els.calibRow.addEventListener('click', openCalib);
+    if (els.openThBtn) els.openThBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openTh();
+    });
+    if (els.thRow) els.thRow.addEventListener('click', openTh);
     if (els.openDevBtn) els.openDevBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       openDev();
@@ -3135,6 +3230,9 @@
       state.theme = state.opts.theme;
     }
     setTheme(state.theme, false);
+    let savedAutoStart = false;
+    try { savedAutoStart = localStorage.getItem('cpr-autostart') === '1'; } catch (err) { /* ignore */ }
+    setAutoStart(savedAutoStart, false, false);
     refreshModeButtons();
     refreshProfileButtons();
     refreshThemeButtons();
@@ -3184,7 +3282,11 @@
       }, 80);
     }
 
-    if (!state.opts.ws && !state.opts.demo) {
+    if (!state.opts.sheet) {
+      setTimeout(() => {
+        if (!state.sheet) openInfo('about');
+      }, 150);
+    } else if (!state.opts.ws && !state.opts.demo) {
       if (state.opts.sheet === 'connect') {
         setTimeout(() => {
           if (state.status === 'off') openConnect();

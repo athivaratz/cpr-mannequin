@@ -127,6 +127,34 @@ bool isHxResetCommand(const char* line) {
   return *line == '\0';
 }
 
+bool parseAutoStartCommand(const char* line, bool& outOn) {
+  if (line == nullptr) return false;
+  while (*line == ' ' || *line == '\t') line++;
+  const char* prefix = "autostart ";
+  for (; *prefix; ++prefix, ++line) {
+    if (*line == '\0' || lowerAscii(*line) != *prefix) return false;
+  }
+  while (*line == ' ' || *line == '\t') line++;
+  char arg[8];
+  size_t n = 0;
+  while (*line && *line != ' ' && *line != '\t' && *line != '\r' && *line != '\n') {
+    if (n + 1 >= sizeof(arg)) return false;
+    arg[n++] = lowerAscii(*line++);
+  }
+  arg[n] = '\0';
+  while (*line == ' ' || *line == '\t' || *line == '\r' || *line == '\n') line++;
+  if (*line != '\0') return false;
+  if (strcmp(arg, "on") == 0 || strcmp(arg, "1") == 0) {
+    outOn = true;
+    return true;
+  }
+  if (strcmp(arg, "off") == 0 || strcmp(arg, "0") == 0) {
+    outOn = false;
+    return true;
+  }
+  return false;
+}
+
 void lowerWord(char* s) {
   for (char* p = s; *p; ++p) *p = lowerAscii(*p);
 }
@@ -344,6 +372,12 @@ void handleCommand(const char* line) {
     g_sensors.requestHxReboot(millis());
     sendAck("hx reset", true, "ok");
     sendConfig();
+    return;
+  }
+  bool autoStartOn = false;
+  if (parseAutoStartCommand(line, autoStartOn)) {
+    g_engine.setAutoStart(autoStartOn);
+    sendAck("autostart", true, autoStartOn ? "on" : "off");
     return;
   }
 
