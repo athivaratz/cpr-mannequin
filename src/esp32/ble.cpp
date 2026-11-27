@@ -17,7 +17,7 @@ constexpr const char* kTxCharUuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 constexpr uint16_t kBlePreferredMtu = 256;
 constexpr uint16_t kBleDefaultMtu = 23;
 constexpr size_t kOutLineLen = cpr::kMaxJsonLine + 8;
-constexpr size_t kCmdLineLen = 128;
+constexpr size_t kCmdLineLen = 64;
 
 NimBLEServer* g_server = nullptr;
 NimBLECharacteristic* g_txChar = nullptr;

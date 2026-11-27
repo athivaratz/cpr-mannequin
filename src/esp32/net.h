@@ -7,8 +7,7 @@
 
 namespace net {
 
-void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
-           const char* wifiPassword);
+void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue);
 void loop();
 void setConfigLine(const char* line);
 void setFrame(const char* line);
@@ -17,10 +16,6 @@ void setDiagSensor(uint8_t sps, bool hxPresent, long rawAdc, long offset,
 void noteQueueDrop();
 bool serialStreaming();
 void setSerialStreaming(bool on);
-
-bool requestStaConfig(const char* ssid, const char* pass);
-bool requestStaClear();
-void formatWifiStatus(char* out, size_t cap);
 
 } // namespace net
 

@@ -152,10 +152,8 @@
       'devAlertText', 'devMinKg', 'devMaxKg', 'devZeroSec', 'devSps',
       'devHxStatus', 'devHxReboots', 'devHxRaw', 'devHxOff', 'devHxScale',
       'devSys', 'devTareBtn', 'devRebootBtn', 'devClearBtn',
-      'connectBle', 'bleHint', 'connectWs', 'connectSerial', 'serialHint',
+      'connectBle', 'bleHint', 'connectSerial', 'serialHint',
       'connectDemo', 'demoSelect', 'connectDisconnectRow', 'connectDisconnectBtn',
-      'wifiRow', 'openWifiBtn', 'sheetWifi', 'wifiStatusText', 'wifiSsidInput',
-      'wifiPassInput', 'wifiSaveBtn', 'wifiCheckBtn', 'wifiClearBtn',
       'summaryContent', 'summaryEmpty', 'summaryFoot', 'scoreRing', 'scoreValue',
       'gradeWord', 'summaryMeta', 'metricDepth', 'metricRate', 'metricRecoil',
       'metricHand', 'metricCcf', 'mDepth', 'mRate', 'mRecoil', 'mHand', 'mCcf',
@@ -184,7 +182,6 @@
       calib: els.sheetCalib,
       th: els.sheetTh,
       dev: els.sheetDev,
-      wifi: els.sheetWifi,
       info: els.sheetInfo
     };
   }
@@ -970,8 +967,6 @@
       if (cmd === 'tare' || cmd === 'hx reset' || cmd === 'cal weight' || cmd === 'cal reset') {
         setTimeout(() => this.emitCfg(), 30);
       }
-      if (cmd === 'wifi status') msg = 'ap 192.168.4.1';
-      if (cmd === 'wifi sta') msg = /\bclear\b/i.test(line) ? 'cleared' : 'connecting';
       if (cmd === 'cal peak') {
         this.peakCount += 1;
         const value = this.peakCount % 2 === 1 ? '7.1' : '13.0';
@@ -1681,22 +1676,6 @@
       showToast(msg.ok ? 'ตั้งศูนย์แล้ว' : (msg.msg || 'ตั้งศูนย์ไม่ได้'), msg.ok ? 'ok' : 'bad');
       return;
     }
-    if (msg.cmd === 'wifi status') {
-      if (els.wifiStatusText) setText(els.wifiStatusText, msg.msg || '—');
-      return;
-    }
-    if (msg.cmd === 'wifi sta') {
-      if (msg.ok) {
-        const text = msg.msg === 'cleared'
-          ? 'ลบค่า Wi-Fi แล้ว หุ่นกำลังกลับไปเปิด AP'
-          : 'บันทึกแล้ว หุ่นกำลังเชื่อมต่อ Wi-Fi (เปิด http://cpr-trainer.local)';
-        if (els.wifiStatusText) setText(els.wifiStatusText, msg.msg || 'ok');
-        showToast(text, 'ok');
-      } else {
-        showToast(msg.msg === 'bad length' ? 'ชื่อ Wi-Fi 1–32 ตัว และรหัสผ่าน 8–63 ตัว (หรือเว้นว่าง)' : (msg.msg || 'ตั้งค่า Wi-Fi ไม่ได้'), 'bad');
-      }
-      return;
-    }
     if (!msg.ok) {
       showToast(msg.msg || 'สั่งหุ่นไม่ได้', 'bad');
     }
@@ -1749,9 +1728,8 @@
   }
 
   function refreshThVisibility() {
-    const isNano = !!(state.cfg && state.cfg.board === 'nano');
-    if (els.thRow) els.thRow.hidden = isNano;
-    if (els.wifiRow) els.wifiRow.hidden = isNano;
+    if (!els.thRow) return;
+    els.thRow.hidden = !!(state.cfg && state.cfg.board === 'nano');
   }
 
   function refreshHandVisibility() {
@@ -1813,9 +1791,8 @@
     const statusText = STATUS_TEXT[state.status] || STATUS_TEXT.off;
     setText(els.settingsConnText, state.status === 'demo' && state.demoTitle
       ? 'เดโม · ' + state.demoTitle : statusText);
-    setUse(els.settingsConnIconUse, state.transportKind === 'serial' ? 'usb'
-      : state.transportKind === 'ble' ? 'bluetooth'
-        : state.transportKind === 'demo' ? 'monitor-play' : 'wifi');
+    setUse(els.settingsConnIconUse, state.transportKind === 'serial' || state.transportKind === 'ws' ? 'usb'
+      : state.transportKind === 'demo' ? 'monitor-play' : 'bluetooth');
     if (els.connectDisconnectRow) els.connectDisconnectRow.hidden = state.status === 'off';
   }
 
@@ -2488,8 +2465,8 @@
     const bleHintText = ble
       ? 'ต่อไร้สาย ไม่เสียเน็ต (Android / PC / Bluefy)'
       : (window.isSecureContext === false
-        ? 'ต้องเปิดผ่าน HTTPS (หรือใช้ Wi-Fi cpr-trainer.local)'
-        : 'Safari ไม่รองรับ · ใช้แอป Bluefy หรือ Wi-Fi cpr-trainer.local');
+        ? 'ต้องเปิดผ่าน HTTPS (GitHub Pages)'
+        : 'Safari ไม่รองรับ · เปิดลิงก์นี้ในแอป Bluefy (iOS/iPadOS)');
     setText(els.bleHint, bleHintText);
 
     const serial = 'serial' in navigator;
@@ -2507,14 +2484,6 @@
     }
     refreshInfoPanels();
     openSheet('connect');
-  }
-
-  function openWifi() {
-    if (els.wifiStatusText) setText(els.wifiStatusText, state.status === 'off' ? 'ยังไม่ได้ต่อหุ่น' : 'กำลังตรวจ…');
-    openSheet('wifi');
-    if (state.transport && state.status !== 'off') {
-      state.transport.send('wifi status');
-    }
   }
 
   function openSettings() {
@@ -2763,9 +2732,9 @@
     const dropped = (has(diag.qDrop) ? diag.qDrop : 0) +
       (has(diag.fDrop) ? diag.fDrop : 0);
 
-    const wifiPart = has(diag.wifi) ? (' · Wi-Fi ' + (diag.wifi ? 'เปิด' : 'ปิด')) : '';
+    const blePart = has(diag.ble) ? (' · BLE ' + (diag.ble ? 'เชื่อมต่อ' : 'รอ')) : '';
     return 'ระบบ · เปิดมา ' + upText + ' · อ่าน ' + sps + '/วิ · สาย USB ' +
-      usb + wifiPart + ' · ข้อมูลเสีย ' + bad + ' · หลุด ' + dropped;
+      usb + blePart + ' · ข้อมูลเสีย ' + bad + ' · หลุด ' + dropped;
   }
 
   function aboutBody() {
@@ -3262,9 +3231,6 @@
         attachTransport(new BleTransport(), 'ble');
       });
     }
-    if (els.connectWs) {
-      els.connectWs.addEventListener('click', () => attachTransport(new WsTransport(), 'ws'));
-    }
     if (els.connectSerial) {
       els.connectSerial.addEventListener('click', () => {
         if (els.connectSerial.disabled) return;
@@ -3313,48 +3279,6 @@
       openDev();
     });
     if (els.devRow) els.devRow.addEventListener('click', openDev);
-    if (els.openWifiBtn) els.openWifiBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      openWifi();
-    });
-    if (els.wifiRow) els.wifiRow.addEventListener('click', openWifi);
-    if (els.wifiSaveBtn) {
-      els.wifiSaveBtn.addEventListener('click', () => {
-        if (!state.transport || state.status === 'off') {
-          showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
-          return;
-        }
-        const ssid = els.wifiSsidInput ? els.wifiSsidInput.value.trim() : '';
-        const pass = els.wifiPassInput ? els.wifiPassInput.value : '';
-        if (!ssid || ssid.length > 32) {
-          showToast('กรุณากรอกชื่อ Wi-Fi (1–32 ตัวอักษร)', 'bad');
-          return;
-        }
-        if (pass.length > 0 && (pass.length < 8 || pass.length > 63)) {
-          showToast('รหัสผ่าน Wi-Fi ต้องมี 8–63 ตัวอักษร หรือเว้นว่าง', 'bad');
-          return;
-        }
-        state.transport.send('wifi sta ' + ssid + '\t' + pass);
-      });
-    }
-    if (els.wifiCheckBtn) {
-      els.wifiCheckBtn.addEventListener('click', () => {
-        if (!state.transport || state.status === 'off') {
-          showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
-          return;
-        }
-        state.transport.send('wifi status');
-      });
-    }
-    if (els.wifiClearBtn) {
-      els.wifiClearBtn.addEventListener('click', () => {
-        if (!state.transport || state.status === 'off') {
-          showToast('ยังไม่ได้เชื่อมต่อหุ่น', 'bad');
-          return;
-        }
-        state.transport.send('wifi sta clear');
-      });
-    }
     if (els.warnZeroDevBtn) els.warnZeroDevBtn.addEventListener('click', openDev);
     if (els.thResetBtn) els.thResetBtn.addEventListener('click', thReset);
 
@@ -3489,13 +3413,6 @@
         seek: state.opts.seek,
         mock: state.opts.mock
       }), 'demo');
-    } else if (location.protocol === 'http:' &&
-               (location.hostname === '192.168.4.1' ||
-                location.hostname === 'cpr-trainer.local' ||
-                /^192\.168\.\d+\.\d+$/.test(location.hostname) ||
-                /^10\.\d+\.\d+\.\d+$/.test(location.hostname) ||
-                /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(location.hostname))) {
-      attachTransport(new WsTransport(), 'ws');
     } else if ((state.opts.sheet === 'summary' || state.opts.sheet === 'calib' ||
                 state.opts.sheet === 'th') && isLocalPreview()) {
       attachTransport(new DemoSocket({
@@ -3529,6 +3446,15 @@
         setTimeout(() => openInfo(state.opts.info || 'depth'), 120);
       }
     }
+  }
+
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'https:' ||
+       location.hostname === 'localhost' ||
+       location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => { /* ignore */ });
+    });
   }
 
   if (document.readyState === 'loading') {

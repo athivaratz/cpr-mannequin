@@ -202,30 +202,26 @@ clinical numbers:
 - `rkg`, `hxs`, and `hx reset` are handled in `src/esp32/` so `lib/cpr_core`
   and the Nano build remain untouched.
 
-## ESP32 Wi-Fi STA + mDNS and NimBLE BLE UART (partition, library, constants)
+## ESP32 BLE-only + USB firmware and offline PWA dashboard (v2.0.0)
 
-To allow phones and iPads to keep internet access while using the mannequin, the
-ESP32 build adds Wi-Fi STA mode with mDNS (`http://cpr-trainer.local`, AP
-fallback) and a NimBLE GATT UART (NUS) transport for Web Bluetooth. These
-deviate from `DESIGN.md` §1/§6 as follows:
+To let phones and iPads keep internet access and allow dashboard updates without
+reflashing the ESP32, the ESP32 build (v2.0.0) removes Wi-Fi AP/STA, mDNS,
+Captive DNS, AsyncWebServer, and embedded `web_assets.h`, keeping NimBLE GATT
+UART (Web Bluetooth) and USB Serial only. The dashboard in `web/` is deployed
+to GitHub Pages (HTTPS) with a PWA Service Worker (`web/sw.js` +
+`web/manifest.json`) for full offline use. Deviations from `DESIGN.md` §1/§6:
 
-- **Partition table**: `env:esp32dev` now uses `huge_app.csv` (3 MB app, no OTA)
-  instead of `default.csv` (1.25 MB app), because Wi-Fi + AsyncWebServer +
-  embedded web assets (~1.08 MB) plus NimBLE (~300 KB) exceed 1.25 MB.
-- **Additional ESP32 dependencies**: `h2zero/NimBLE-Arduino` (peripheral-only,
-  `CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1`, central/observer roles disabled to save
-  DRAM/Heap) and core `ESPmDNS`.
-- **Mutual exclusion**: BLE, Wi-Fi, and USB web modes are mutually exclusive on
-  ESP32. While a BLE client is connected, Wi-Fi is powered off (`WIFI_OFF`) to
-  preserve free heap and avoid 2.4 GHz radio contention; Wi-Fi restarts when BLE
-  disconnects.
+- **Partition table**: stays on `default.csv` (1.25 MB app) because removing
+  Wi-Fi, AsyncWebServer, and `web_assets.h` keeps the firmware well under 1 MB.
+- **Dependencies**: `esp32async/AsyncTCP` and `esp32async/ESPAsyncWebServer`
+  are removed; `h2zero/NimBLE-Arduino` (peripheral-only,
+  `CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1`, central/observer roles disabled) is
+  used for BLE GATT UART (NUS).
+- **Web assets**: `extra_scripts = pre:tools/embed_web.py` is removed from
+  `env:esp32dev`; the web dashboard is served from GitHub Pages (with offline
+  PWA cache) or locally via `tools/usb_server.py` (`?ws=1`).
+- **Mutual exclusion**: BLE and USB web modes are mutually exclusive on ESP32.
 - **Engineering values (tunable, not clinical)**:
   - `kBlePreferredMtu = 256` in `src/esp32/ble.cpp`.
-  - `kStaConnectTimeoutMs = 12000` (12 s STA join timeout before AP fallback),
-    `kStaDropFallbackMs = 15000` (15 s lost-STA fallback when no WS client is
-    attached), `kStaApplyDelayMs = 300` (delay after `wifi sta` ack before
-    reconfiguring Wi-Fi), `kLedBlePeriodMs = 2000` (double short blink on GPIO 2
-    for BLE mode) in `src/esp32/net.cpp`.
-  - `wifi sta`, `wifi sta clear`, and `wifi status` are handled in `src/esp32/`
-    with `kCmdLineLength = 128` so `lib/cpr_core` and the Nano build remain
-    untouched.
+  - `kLedBlePeriodMs = 2000` (double short blink on GPIO 2 for BLE mode) in
+    `src/esp32/net.cpp`.
