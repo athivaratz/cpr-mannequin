@@ -2463,7 +2463,7 @@
       else els.connectBle.setAttribute('aria-disabled', 'true');
     }
     const bleHintText = ble
-      ? 'ต่อไร้สาย ไม่เสียเน็ต (Android / PC / Bluefy)'
+      ? 'เชื่อมต่อผ่าน Bluetooth (Android / PC / Bluefy สำหรับ IOS, IpadOS)'
       : (window.isSecureContext === false
         ? 'ต้องเปิดผ่าน HTTPS (GitHub Pages)'
         : 'Safari ไม่รองรับ · เปิดลิงก์นี้ในแอป Bluefy (iOS/iPadOS)');
@@ -2476,7 +2476,7 @@
       else els.connectSerial.setAttribute('aria-disabled', 'true');
     }
     const serialHintText = serial
-      ? 'Chrome / Edge บนคอม'
+      ? 'เชื่อมต่อผ่านการเสียบ ESP32 กับคอมพิวเตอร์ของคุณ'
       : (window.isSecureContext === false ? 'เปิดผ่าน localhost หรือ HTTPS' : 'เบราว์เซอร์นี้ไม่รองรับ');
     setText(els.serialHint, serialHintText);
     if (state.opts.demo && els.demoSelect) {
