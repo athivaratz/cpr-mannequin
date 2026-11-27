@@ -9,6 +9,8 @@ namespace {
 constexpr const char* kNamespace = "cpr";
 constexpr const char* kCalKey = "cal";
 constexpr const char* kWifiKey = "wifipass";
+constexpr const char* kStaSsidKey = "stassid";
+constexpr const char* kStaPassKey = "stapass";
 constexpr const char* kThKey = "th";
 
 // calibSerialize never writes more than 96 bytes (DESIGN 3.7).
@@ -142,6 +144,62 @@ bool saveWifiPass(const char* pass) {
   const size_t written = prefs.putString(kWifiKey, pass);
   prefs.end();
   return written == length;
+}
+
+bool loadStaConfig(char* ssid, size_t ssidCap, char* pass, size_t passCap) {
+  if (ssid == nullptr || ssidCap < 2 || pass == nullptr || passCap < 1) {
+    return false;
+  }
+
+  Preferences prefs;
+  if (!prefs.begin(kNamespace, true)) return false;
+
+  const size_t ssidLen = prefs.getString(kStaSsidKey, ssid, ssidCap);
+  if (ssidLen < 2 || ssid[0] == '\0') {
+    prefs.end();
+    ssid[0] = '\0';
+    pass[0] = '\0';
+    return false;
+  }
+
+  pass[0] = '\0';
+  prefs.getString(kStaPassKey, pass, passCap);
+  prefs.end();
+  return true;
+}
+
+bool saveStaConfig(const char* ssid, const char* pass) {
+  if (ssid == nullptr) return false;
+  const size_t ssidLen = strlen(ssid);
+  if (ssidLen < 1 || ssidLen > 32) return false;
+
+  const char* safePass = (pass != nullptr) ? pass : "";
+  const size_t passLen = strlen(safePass);
+  if (passLen > 63) return false;
+  if (passLen > 0 && passLen < 8) return false;
+
+  Preferences prefs;
+  if (!prefs.begin(kNamespace, false)) return false;
+
+  const size_t wroteSsid = prefs.putString(kStaSsidKey, ssid);
+  bool wrotePass = false;
+  if (passLen == 0) {
+    prefs.remove(kStaPassKey);
+    wrotePass = true;
+  } else {
+    wrotePass = (prefs.putString(kStaPassKey, safePass) == passLen);
+  }
+  prefs.end();
+  return wroteSsid == ssidLen && wrotePass;
+}
+
+bool clearStaConfig() {
+  Preferences prefs;
+  if (!prefs.begin(kNamespace, false)) return false;
+  prefs.remove(kStaSsidKey);
+  prefs.remove(kStaPassKey);
+  prefs.end();
+  return true;
 }
 
 } // namespace storage

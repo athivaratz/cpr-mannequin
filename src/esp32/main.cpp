@@ -18,12 +18,12 @@
 
 namespace {
 
-constexpr const char* kFirmwareVersion = "1.4.0";
+constexpr const char* kFirmwareVersion = "1.5.0";
 constexpr const char* kDefaultWifiPass = "cprtrain123";
 constexpr size_t kOutQueueLength = 24;
 constexpr size_t kOutLineLength = cpr::kMaxJsonLine + 8;
 constexpr size_t kCmdQueueLength = 8;
-constexpr size_t kCmdLineLength = 64;
+constexpr size_t kCmdLineLength = 128;
 constexpr uint32_t kFramePeriodMs = 50;
 
 QueueHandle_t g_outQueue = nullptr;
@@ -153,6 +153,96 @@ bool parseAutoStartCommand(const char* line, bool& outOn) {
     return true;
   }
   return false;
+}
+
+bool matchPrefixIgnoreCase(const char* line, const char* prefix,
+                           const char** restOut) {
+  if (line == nullptr) return false;
+  while (*line == ' ' || *line == '\t') line++;
+  for (; *prefix; ++prefix, ++line) {
+    if (*line == '\0' || lowerAscii(*line) != *prefix) return false;
+  }
+  if (restOut != nullptr) *restOut = line;
+  return true;
+}
+
+bool handleWifiExtraCommand(const char* line) {
+  const char* rest = nullptr;
+  if (matchPrefixIgnoreCase(line, "wifi status", &rest)) {
+    while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') rest++;
+    if (*rest != '\0') {
+      sendAck("wifi status", false, "bad syntax");
+      return true;
+    }
+    char status[48];
+    net::formatWifiStatus(status, sizeof(status));
+    sendAck("wifi status", true, status);
+    return true;
+  }
+
+  if (!matchPrefixIgnoreCase(line, "wifi sta", &rest)) {
+    return false;
+  }
+  if (*rest != ' ' && *rest != '\t') return false;
+  while (*rest == ' ' || *rest == '\t') rest++;
+
+  const char* afterClear = nullptr;
+  if (matchPrefixIgnoreCase(rest, "clear", &afterClear)) {
+    while (*afterClear == ' ' || *afterClear == '\t' || *afterClear == '\r' ||
+           *afterClear == '\n') {
+      afterClear++;
+    }
+    if (*afterClear == '\0') {
+      const bool ok = net::requestStaClear();
+      sendAck("wifi sta", ok, ok ? "cleared" : "write failed");
+      return true;
+    }
+  }
+
+  // Format: "wifi sta <ssid>\t<pass>" (supports spaces in SSID/pass)
+  // or "wifi sta <ssid> <pass>" (or "wifi sta <ssid>" for open Wi-Fi).
+  char work[kCmdLineLength];
+  const size_t restLen = strlen(rest);
+  if (restLen == 0 || restLen >= sizeof(work)) {
+    sendAck("wifi sta", false, "bad syntax");
+    return true;
+  }
+  memcpy(work, rest, restLen + 1);
+
+  size_t endLen = restLen;
+  while (endLen > 0 &&
+         (work[endLen - 1] == '\r' || work[endLen - 1] == '\n')) {
+    work[--endLen] = '\0';
+  }
+
+  char* sep = strchr(work, '\t');
+  char* ssid = work;
+  char* pass = nullptr;
+  if (sep != nullptr) {
+    *sep = '\0';
+    pass = sep + 1;
+  } else {
+    sep = strchr(work, ' ');
+    if (sep != nullptr) {
+      *sep = '\0';
+      pass = sep + 1;
+      while (*pass == ' ') pass++;
+    } else {
+      pass = work + endLen;
+    }
+  }
+
+  const size_t ssidLen = strlen(ssid);
+  const size_t passLen = strlen(pass);
+  if (ssidLen < 1 || ssidLen > 32 || passLen > 63 ||
+      (passLen > 0 && passLen < 8)) {
+    sendAck("wifi sta", false, "bad length");
+    return true;
+  }
+
+  const bool ok = net::requestStaConfig(ssid, pass);
+  sendAck("wifi sta", ok, ok ? "connecting" : "write failed");
+  return true;
 }
 
 void lowerWord(char* s) {
@@ -378,6 +468,9 @@ void handleCommand(const char* line) {
   if (parseAutoStartCommand(line, autoStartOn)) {
     g_engine.setAutoStart(autoStartOn);
     sendAck("autostart", true, autoStartOn ? "on" : "off");
+    return;
+  }
+  if (handleWifiExtraCommand(line)) {
     return;
   }
 

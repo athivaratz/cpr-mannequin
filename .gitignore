@@ -3,6 +3,7 @@
 .pioenvs/
 .piolibdeps/
 .vscode/
+.agents/
 
 # Node / Python
 node_modules/

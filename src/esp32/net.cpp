@@ -2,15 +2,18 @@
 
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include <WiFi.h>
 
 #include <stdio.h>
 #include <string.h>
 
-#include "pins.h"
-#include "web_assets.h"
+#include "ble.h"
 #include "cpr_command.h"
 #include "cpr_json.h"
+#include "pins.h"
+#include "storage.h"
+#include "web_assets.h"
 
 #ifndef CPR_CAPTIVE_DNS
 #define CPR_CAPTIVE_DNS 1
@@ -22,24 +25,31 @@
 
 namespace {
 
-enum class ConnMode : uint8_t { Idle = 0, Wifi = 1, Usb = 2 };
+enum class ConnMode : uint8_t { Idle = 0, Wifi = 1, Usb = 2, Ble = 3 };
+enum class WifiState : uint8_t { Off = 0, StaConnecting = 1, StaConnected = 2, Ap = 3 };
 
 constexpr uint16_t kHttpPort = 80;
 constexpr uint8_t kApChannel = 6;
 constexpr uint8_t kMaxStations = 4;
 constexpr uint16_t kMaxWsClients = 4;
 constexpr size_t kOutLineLen = cpr::kMaxJsonLine + 8;
-constexpr size_t kCmdLineLen = 64;
+constexpr size_t kCmdLineLen = 128;
 constexpr const char* kDefaultWifiPass = "cprtrain123";
+constexpr const char* kMdnsHost = "cpr-trainer";
 constexpr uint32_t kFramePeriodMs = 50;
 constexpr uint32_t kDiagPeriodMs = 5000;
 constexpr uint32_t kRxWindowMs = 1000;
 constexpr uint16_t kRxLinesPerWindow = 20;
-// Engineering values, tunable: USB web heartbeat lease timeout and status LED timings.
+
+// Engineering values, tunable: USB lease, STA timeouts, and status LED timings.
 constexpr uint32_t kUsbWebTimeoutMs = 10000;
+constexpr uint32_t kStaConnectTimeoutMs = 12000;
+constexpr uint32_t kStaDropFallbackMs = 15000;
+constexpr uint32_t kStaApplyDelayMs = 300;
 constexpr uint32_t kLedIdleHalfPeriodMs = 500;
 constexpr uint32_t kLedWifiPeriodMs = 3000;
 constexpr uint32_t kLedWifiLowMs = 500;
+constexpr uint32_t kLedBlePeriodMs = 2000;
 
 AsyncWebServer g_server(kHttpPort);
 AsyncWebSocket g_ws("/ws");
@@ -57,11 +67,23 @@ bool g_frameFresh = false;
 
 bool g_serialStreaming = (CPR_SERIAL_STREAM_DEFAULT != 0);
 ConnMode g_connMode = ConnMode::Idle;
+WifiState g_wifiState = WifiState::Off;
 bool g_wifiEnabled = false;
+bool g_mdnsStarted = false;
 uint32_t g_usbWebLastMs = 0;
+uint32_t g_staStartMs = 0;
+uint32_t g_staDropMs = 0;
 int8_t g_ledState = -1;
 char g_ssid[24];
 char g_wifiPass[64];
+
+portMUX_TYPE g_staMux = portMUX_INITIALIZER_UNLOCKED;
+bool g_hasStaConfig = false;
+char g_staSsid[33];
+char g_staPass[64];
+char g_staIp[20];
+bool g_staActionPending = false;
+uint32_t g_staActionAtMs = 0;
 
 // Each counter has a single writer task; volatile is enough for a snapshot.
 volatile uint32_t g_rxCount = 0;
@@ -219,6 +241,18 @@ bool equalsIgnoreCase(const char* a, const char* b) {
   return *a == '\0' && *b == '\0';
 }
 
+bool startsWithIgnoreCase(const char* text, const char* prefix) {
+  while (*prefix) {
+    if (*text == '\0') return false;
+    char ca = *text++;
+    char cb = *prefix++;
+    if (ca >= 'A' && ca <= 'Z') ca = (char)(ca - 'A' + 'a');
+    if (cb >= 'A' && cb <= 'Z') cb = (char)(cb - 'A' + 'a');
+    if (ca != cb) return false;
+  }
+  return true;
+}
+
 bool forwardSerialLine(const char* line) {
   const uint32_t now = millis();
   if ((uint32_t)(now - g_rxWindowStart) >= kRxWindowMs) {
@@ -239,18 +273,26 @@ bool forwardSerialLine(const char* line) {
 }
 
 bool usbAllowed() {
-  return g_connMode != ConnMode::Wifi;
+  return g_connMode != ConnMode::Wifi && g_connMode != ConnMode::Ble;
+}
+
+void stopMdns() {
+  if (!g_mdnsStarted) return;
+  MDNS.end();
+  g_mdnsStarted = false;
 }
 
 void startWifiAp() {
-  if (g_wifiEnabled) return;
-
+  stopMdns();
+  WiFi.disconnect(true, false);
   WiFi.mode(WIFI_AP);
   IPAddress ip(192, 168, 4, 1);
   IPAddress mask(255, 255, 255, 0);
   WiFi.softAPConfig(ip, ip, mask);
   if (!WiFi.softAP(g_ssid, g_wifiPass, kApChannel, 0, kMaxStations)) {
     Serial.println("# AP start failed");
+    g_wifiEnabled = false;
+    g_wifiState = WifiState::Off;
     return;
   }
 
@@ -261,19 +303,148 @@ void startWifiAp() {
   }
 #endif
 
+  portENTER_CRITICAL(&g_staMux);
+  strncpy(g_staIp, "192.168.4.1", sizeof(g_staIp) - 1);
+  g_staIp[sizeof(g_staIp) - 1] = '\0';
+  portEXIT_CRITICAL(&g_staMux);
+
   g_wifiEnabled = true;
+  g_wifiState = WifiState::Ap;
 }
 
-void stopWifiAp() {
-  if (!g_wifiEnabled) return;
+void startWifiSta() {
+  char ssid[33];
+  char pass[64];
+  bool hasSta = false;
+  portENTER_CRITICAL(&g_staMux);
+  hasSta = g_hasStaConfig;
+  strncpy(ssid, g_staSsid, sizeof(ssid) - 1);
+  ssid[sizeof(ssid) - 1] = '\0';
+  strncpy(pass, g_staPass, sizeof(pass) - 1);
+  pass[sizeof(pass) - 1] = '\0';
+  g_staIp[0] = '\0';
+  portEXIT_CRITICAL(&g_staMux);
 
-  g_ws.closeAll();
+  if (!hasSta || ssid[0] == '\0') {
+    startWifiAp();
+    return;
+  }
+
+  stopMdns();
 #if CPR_CAPTIVE_DNS
   g_dns.stop();
 #endif
   WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname(kMdnsHost);
+  WiFi.setAutoReconnect(true);
+  if (pass[0] != '\0') {
+    WiFi.begin(ssid, pass);
+  } else {
+    WiFi.begin(ssid);
+  }
+
+  g_wifiEnabled = true;
+  g_wifiState = WifiState::StaConnecting;
+  g_staStartMs = millis();
+  g_staDropMs = 0;
+  Serial.print("# Wi-Fi STA connecting: ");
+  Serial.println(ssid);
+}
+
+void startWifi() {
+  if (g_wifiEnabled) return;
+
+  bool hasSta = false;
+  portENTER_CRITICAL(&g_staMux);
+  hasSta = g_hasStaConfig;
+  portEXIT_CRITICAL(&g_staMux);
+
+  if (hasSta) {
+    startWifiSta();
+  } else {
+    startWifiAp();
+  }
+}
+
+void stopWifi() {
+  if (!g_wifiEnabled && g_wifiState == WifiState::Off) return;
+
+  g_ws.closeAll();
+  stopMdns();
+#if CPR_CAPTIVE_DNS
+  g_dns.stop();
+#endif
+  WiFi.softAPdisconnect(true);
+  WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
+
+  portENTER_CRITICAL(&g_staMux);
+  g_staIp[0] = '\0';
+  portEXIT_CRITICAL(&g_staMux);
+
   g_wifiEnabled = false;
+  g_wifiState = WifiState::Off;
+  g_staDropMs = 0;
+}
+
+void serviceWifi(uint32_t now) {
+  bool applyNow = false;
+  portENTER_CRITICAL(&g_staMux);
+  if (g_staActionPending && (int32_t)(now - g_staActionAtMs) >= 0) {
+    g_staActionPending = false;
+    applyNow = true;
+  }
+  portEXIT_CRITICAL(&g_staMux);
+
+  if (applyNow && g_connMode != ConnMode::Usb && g_connMode != ConnMode::Ble) {
+    stopWifi();
+    startWifi();
+    return;
+  }
+
+  if (!g_wifiEnabled) return;
+
+  if (g_wifiState == WifiState::StaConnecting) {
+    if (WiFi.status() == WL_CONNECTED) {
+      g_wifiState = WifiState::StaConnected;
+      g_staDropMs = 0;
+
+      const IPAddress ip = WiFi.localIP();
+      char ipBuf[20];
+      snprintf(ipBuf, sizeof(ipBuf), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+      portENTER_CRITICAL(&g_staMux);
+      strncpy(g_staIp, ipBuf, sizeof(g_staIp) - 1);
+      g_staIp[sizeof(g_staIp) - 1] = '\0';
+      portEXIT_CRITICAL(&g_staMux);
+
+      if (MDNS.begin(kMdnsHost)) {
+        MDNS.addService("http", "tcp", kHttpPort);
+        g_mdnsStarted = true;
+      }
+      Serial.print("# STA IP: ");
+      Serial.print(ipBuf);
+      Serial.println(" (http://cpr-trainer.local)");
+    } else if ((uint32_t)(now - g_staStartMs) >= kStaConnectTimeoutMs) {
+      Serial.println("# Wi-Fi STA timeout, falling back to AP");
+      startWifiAp();
+    }
+    return;
+  }
+
+  if (g_wifiState == WifiState::StaConnected) {
+    if (WiFi.status() != WL_CONNECTED) {
+      if (g_staDropMs == 0) {
+        g_staDropMs = now;
+      } else if ((uint32_t)(now - g_staDropMs) >= kStaDropFallbackMs &&
+                 g_ws.count() == 0) {
+        Serial.println("# Wi-Fi STA lost, falling back to AP");
+        startWifiAp();
+      }
+    } else {
+      g_staDropMs = 0;
+    }
+  }
 }
 
 void updateStatusLed(uint32_t now) {
@@ -283,6 +454,10 @@ void updateStatusLed(uint32_t now) {
   } else if (g_connMode == ConnMode::Wifi) {
     // Blink LOW for 0.5 s every 3.0 s (HIGH 2.5 s, LOW 0.5 s).
     level = ((now % kLedWifiPeriodMs) < kLedWifiLowMs) ? LOW : HIGH;
+  } else if (g_connMode == ConnMode::Ble) {
+    // Double short blink every 2.0 s (ON 0..100 ms and 200..300 ms).
+    const uint32_t phase = now % kLedBlePeriodMs;
+    level = (phase < 100UL || (phase >= 200UL && phase < 300UL)) ? HIGH : LOW;
   } else {
     // Idle: toggle every 0.5 s.
     level = (((now / kLedIdleHalfPeriodMs) % 2UL) == 0UL) ? HIGH : LOW;
@@ -295,19 +470,36 @@ void updateStatusLed(uint32_t now) {
 }
 
 void updateConnMode(uint32_t now) {
+  if (g_connMode == ConnMode::Ble) {
+    if (!ble::isConnected()) {
+      g_connMode = ConnMode::Idle;
+      startWifi();
+    }
+    return;
+  }
+
   if (g_connMode == ConnMode::Usb) {
     if ((uint32_t)(now - g_usbWebLastMs) >= kUsbWebTimeoutMs) {
       g_connMode = ConnMode::Idle;
-      startWifiAp();
+      startWifi();
+      ble::resumeAdvertising();
     }
+    return;
+  }
+
+  if (g_connMode == ConnMode::Idle && ble::isConnected()) {
+    g_connMode = ConnMode::Ble;
+    stopWifi();
     return;
   }
 
   const size_t wsClients = g_wifiEnabled ? g_ws.count() : 0;
   if (g_connMode == ConnMode::Idle && wsClients > 0) {
     g_connMode = ConnMode::Wifi;
+    ble::pauseAdvertising();
   } else if (g_connMode == ConnMode::Wifi && wsClients == 0) {
     g_connMode = ConnMode::Idle;
+    ble::resumeAdvertising();
   }
 }
 
@@ -315,7 +507,7 @@ void handleSerialLine(char* text) {
   char* line = trimLine(text);
   if (*line == '\0') return;
 
-  // Ignore USB commands while a Wi-Fi web client owns the session.
+  // Ignore USB commands while a Wi-Fi or BLE client owns the session.
   if (!usbAllowed()) return;
 
   if (equalsIgnoreCase(line, "usb active")) {
@@ -323,7 +515,8 @@ void handleSerialLine(char* text) {
     net::setSerialStreaming(true);
     if (g_connMode != ConnMode::Usb) {
       g_connMode = ConnMode::Usb;
-      stopWifiAp();
+      stopWifi();
+      ble::pauseAdvertising();
     }
     return;
   }
@@ -331,7 +524,8 @@ void handleSerialLine(char* text) {
   if (equalsIgnoreCase(line, "usb idle")) {
     if (g_connMode == ConnMode::Usb) {
       g_connMode = ConnMode::Idle;
-      startWifiAp();
+      startWifi();
+      ble::resumeAdvertising();
     }
     return;
   }
@@ -348,7 +542,9 @@ void handleSerialLine(char* text) {
 
   if (equalsIgnoreCase(line, "hx reset") ||
       equalsIgnoreCase(line, "autostart on") ||
-      equalsIgnoreCase(line, "autostart off")) {
+      equalsIgnoreCase(line, "autostart off") ||
+      startsWithIgnoreCase(line, "wifi sta") ||
+      equalsIgnoreCase(line, "wifi status")) {
     net::setSerialStreaming(true);
     forwardSerialLine(line);
     return;
@@ -394,7 +590,7 @@ void drainSerial() {
       continue;
     }
 
-    if (c < 0x20 || c > 0x7E) {
+    if ((c < 0x20 || c > 0x7E) && c != '\t') {
       bad = true;
       continue;
     }
@@ -412,7 +608,9 @@ void drainOutput() {
   char line[kOutLineLen];
   while (xQueueReceive(g_outQueue, line, 0) == pdTRUE) {
     line[kOutLineLen - 1] = '\0';
-    if (g_wifiEnabled && g_ws.count() > 0) {
+    if (g_connMode == ConnMode::Ble && ble::isSubscribed()) {
+      ble::notifyLine(line);
+    } else if (g_wifiEnabled && g_ws.count() > 0) {
       g_ws.textAll(line);
     }
 
@@ -446,11 +644,15 @@ void sendLatestFrame(uint32_t now) {
   portEXIT_CRITICAL(&g_frameMux);
   lastFrameMs = now;
 
-  if (g_wifiEnabled && g_ws.count() > 0) {
+  if (g_connMode == ConnMode::Ble && ble::isSubscribed()) {
+    if (!ble::notifyLine(line)) {
+      g_fDrop = g_fDrop + 1;
+    }
+  } else if (g_wifiEnabled && g_ws.count() > 0) {
     if (g_ws.availableForWriteAll()) {
       g_ws.textAll(line);
     } else {
-      g_fDrop++;
+      g_fDrop = g_fDrop + 1;
     }
   }
 
@@ -465,9 +667,10 @@ void sendLatestFrame(uint32_t now) {
 }
 
 void sendDiag(uint32_t now) {
+  const bool wantBle = (g_connMode == ConnMode::Ble && ble::isSubscribed());
   const bool wantWs = g_wifiEnabled && g_ws.count() > 0;
   const bool wantSerial = g_serialStreaming && usbAllowed();
-  if (!wantWs && !wantSerial) return;
+  if (!wantBle && !wantWs && !wantSerial) return;
 
   long rawAdc = 0;
   long offset = 0;
@@ -482,22 +685,27 @@ void sendDiag(uint32_t now) {
   hxStatus = g_diagHxStatus;
   portEXIT_CRITICAL(&g_diagMux);
 
+  const int staConnected = (g_wifiState == WifiState::StaConnected) ? 1 : 0;
+  const int bleConnected = ble::isConnected() ? 1 : 0;
+
   char buffer[288];
   const int written = snprintf(
       buffer, sizeof(buffer),
       "{\"ty\":\"diag\",\"up\":%lu,\"rx\":%lu,\"rxBad\":%lu,\"qDrop\":%lu,"
       "\"sSkip\":%lu,\"fDrop\":%lu,\"sps\":%u,\"heap\":%lu,\"ser\":%d,"
-      "\"hx\":%d,\"wifi\":%d,\"hxs\":%u,\"hxRaw\":%ld,\"hxOff\":%ld,"
-      "\"hxSc\":%.1f,\"hxRst\":%u}",
+      "\"hx\":%d,\"wifi\":%d,\"sta\":%d,\"ble\":%d,\"hxs\":%u,\"hxRaw\":%ld,"
+      "\"hxOff\":%ld,\"hxSc\":%.1f,\"hxRst\":%u}",
       (unsigned long)(now / 1000UL), (unsigned long)g_rxCount,
       (unsigned long)g_rxBad, (unsigned long)g_qDrop, (unsigned long)g_sSkip,
       (unsigned long)g_fDrop, (unsigned)g_diagSps,
       (unsigned long)ESP.getFreeHeap(), g_serialStreaming ? 1 : 0,
-      g_diagHx ? 1 : 0, g_wifiEnabled ? 1 : 0, (unsigned)hxStatus, rawAdc,
-      offset, (double)scale, (unsigned)hxReboots);
+      g_diagHx ? 1 : 0, g_wifiEnabled ? 1 : 0, staConnected, bleConnected,
+      (unsigned)hxStatus, rawAdc, offset, (double)scale, (unsigned)hxReboots);
   if (written <= 0 || (size_t)written >= sizeof(buffer)) return;
 
-  if (wantWs) {
+  if (wantBle) {
+    ble::notifyLine(buffer);
+  } else if (wantWs) {
     g_ws.textAll(buffer);
   }
   if (wantSerial) {
@@ -519,9 +727,17 @@ void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
   g_cmdQueue = cmdQueue;
   g_configLine[0] = '\0';
   g_connMode = ConnMode::Idle;
+  g_wifiState = WifiState::Off;
   g_wifiEnabled = false;
+  g_mdnsStarted = false;
   g_usbWebLastMs = 0;
+  g_staStartMs = 0;
+  g_staDropMs = 0;
   g_ledState = -1;
+  g_staSsid[0] = '\0';
+  g_staPass[0] = '\0';
+  g_staIp[0] = '\0';
+  g_staActionPending = false;
 
   pinMode(pins::kLedBuiltin, OUTPUT);
   updateStatusLed(millis());
@@ -533,12 +749,16 @@ void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
   strncpy(g_wifiPass, password, sizeof(g_wifiPass) - 1);
   g_wifiPass[sizeof(g_wifiPass) - 1] = '\0';
 
-  WiFi.mode(WIFI_AP);
+  g_hasStaConfig = storage::loadStaConfig(g_staSsid, sizeof(g_staSsid),
+                                          g_staPass, sizeof(g_staPass));
+
+  WiFi.mode(WIFI_STA);
   uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
   WiFi.macAddress(mac);
   snprintf(g_ssid, sizeof(g_ssid), "CPR-Trainer-%02X%02X", mac[4], mac[5]);
 
-  startWifiAp();
+  ble::begin(g_ssid, g_cmdQueue);
+  startWifi();
 
   g_ws.onEvent(onWsEvent);
   g_server.addHandler(&g_ws);
@@ -548,7 +768,9 @@ void begin(QueueHandle_t outQueue, QueueHandle_t cmdQueue,
 
 void loop() {
   const uint32_t now = millis();
+  ble::loop();
   updateConnMode(now);
+  serviceWifi(now);
   drainSerial();
   updateConnMode(now);
   drainOutput();
@@ -575,6 +797,7 @@ void setConfigLine(const char* line) {
   strncpy(g_configLine, line != nullptr ? line : "", sizeof(g_configLine) - 1);
   g_configLine[sizeof(g_configLine) - 1] = '\0';
   portEXIT_CRITICAL(&g_configMux);
+  ble::setConfigLine(line);
 }
 
 void setFrame(const char* line) {
@@ -603,5 +826,66 @@ void noteQueueDrop() { g_qDrop++; }
 bool serialStreaming() { return g_serialStreaming; }
 
 void setSerialStreaming(bool on) { g_serialStreaming = on; }
+
+bool requestStaConfig(const char* ssid, const char* pass) {
+  if (!storage::saveStaConfig(ssid, pass)) return false;
+
+  const char* safePass = (pass != nullptr) ? pass : "";
+  portENTER_CRITICAL(&g_staMux);
+  strncpy(g_staSsid, ssid, sizeof(g_staSsid) - 1);
+  g_staSsid[sizeof(g_staSsid) - 1] = '\0';
+  strncpy(g_staPass, safePass, sizeof(g_staPass) - 1);
+  g_staPass[sizeof(g_staPass) - 1] = '\0';
+  g_hasStaConfig = true;
+  g_staActionPending = true;
+  g_staActionAtMs = millis() + kStaApplyDelayMs;
+  portEXIT_CRITICAL(&g_staMux);
+  return true;
+}
+
+bool requestStaClear() {
+  if (!storage::clearStaConfig()) return false;
+
+  portENTER_CRITICAL(&g_staMux);
+  g_staSsid[0] = '\0';
+  g_staPass[0] = '\0';
+  g_hasStaConfig = false;
+  g_staActionPending = true;
+  g_staActionAtMs = millis() + kStaApplyDelayMs;
+  portEXIT_CRITICAL(&g_staMux);
+  return true;
+}
+
+void formatWifiStatus(char* out, size_t cap) {
+  if (out == nullptr || cap == 0) return;
+
+  if (g_connMode == ConnMode::Ble) {
+    snprintf(out, cap, "ble");
+    return;
+  }
+  if (g_connMode == ConnMode::Usb) {
+    snprintf(out, cap, "usb");
+    return;
+  }
+
+  char ip[20];
+  char ssid[33];
+  portENTER_CRITICAL(&g_staMux);
+  strncpy(ip, g_staIp, sizeof(ip) - 1);
+  ip[sizeof(ip) - 1] = '\0';
+  strncpy(ssid, g_staSsid, sizeof(ssid) - 1);
+  ssid[sizeof(ssid) - 1] = '\0';
+  portEXIT_CRITICAL(&g_staMux);
+
+  if (g_wifiState == WifiState::StaConnected) {
+    snprintf(out, cap, "sta %s", ip[0] != '\0' ? ip : "0.0.0.0");
+  } else if (g_wifiState == WifiState::StaConnecting) {
+    snprintf(out, cap, "connecting %s", ssid);
+  } else if (g_wifiState == WifiState::Ap) {
+    snprintf(out, cap, "ap 192.168.4.1");
+  } else {
+    snprintf(out, cap, "off");
+  }
+}
 
 } // namespace net
