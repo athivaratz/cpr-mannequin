@@ -18,6 +18,10 @@ void noteQueueDrop();
 bool serialStreaming();
 void setSerialStreaming(bool on);
 
+bool requestStaConfig(const char* ssid, const char* pass);
+bool requestStaClear();
+void formatWifiStatus(char* out, size_t cap);
+
 } // namespace net
 
 #endif

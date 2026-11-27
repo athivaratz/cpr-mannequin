@@ -39,17 +39,40 @@ accepts a WebSocket text frame that contains one command without a newline.
 - Device to host (when streaming): JSON objects and `#` log lines, one per line.
 - Host to device: command lines from §4.
 
+### Bluetooth Low Energy (BLE GATT UART)
+
+- ESP32 only. Uses NimBLE peripheral mode (single connection) with standard
+  Nordic UART Service (NUS) UUIDs:
+  - Service: `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
+  - RX (client → device, Write / Write Without Response):
+    `6E400002-B5A3-F393-E0A9-E50E24DCCA9E`
+  - TX (device → client, Notify): `6E400003-B5A3-F393-E0A9-E50E24DCCA9E`
+- Advertising name: `CPR-Trainer-XXXX` (same as Soft AP SSID).
+- Device to client: each JSON line is terminated with `\n` and chunked to the
+  negotiated ATT MTU (`MTU - 3`, preferred MTU 256). On TX subscribe, the
+  device sends the current `cfg`.
+- Client to device: newline-terminated command lines from §4 (chunked writes
+  reassembled in a 128-byte buffer).
+- Mutual exclusion: while a BLE client is connected, Wi-Fi (STA/AP/mDNS) is
+  powered off (`WIFI_OFF`) and USB output/commands are paused to save DRAM/Heap
+  and avoid 2.4 GHz radio contention. When BLE disconnects, Wi-Fi resumes.
+
 ### Network
 
+- Wi-Fi STA + mDNS (optional, stored in NVS via `wifi sta`): if configured, the
+  ESP32 connects to the saved 2.4 GHz router or phone hotspot and advertises
+  `http://cpr-trainer.local` via mDNS. If STA fails to connect within 12 s (or
+  drops for 15 s with no clients), it falls back to the Soft AP automatically.
 - Soft AP SSID: `CPR-Trainer-XXXX`, where `XXXX` is the last two MAC bytes in
   uppercase hex.
 - Default password: `cprtrain123`; change it with `wifi pass <password>` and
   reboot.
 - Channel 6, device IP `192.168.4.1`.
-- Captive DNS answers every name with `192.168.4.1` by default. Build with
-  `-DCPR_CAPTIVE_DNS=0` to disable it.
-- HTTP serves the dashboard from the firmware image. `/generate_204`,
-  `/hotspot-detect.html`, and `/connecttest.txt` redirect to `/`.
+- Captive DNS answers every name with `192.168.4.1` by default in AP mode. Build
+  with `-DCPR_CAPTIVE_DNS=0` to disable it.
+- HTTP serves the dashboard from the firmware image on both STA and AP
+  interfaces. `/generate_204`, `/hotspot-detect.html`, and `/connecttest.txt`
+  redirect to `/`.
 
 ## 2. Timing
 
@@ -150,6 +173,9 @@ case-insensitive. Blank lines are ignored.
 | `usb active` / `usb idle` | ESP32 Serial only. `usb active` enters/renews USB web mode (turns off Wi-Fi AP, 10 s lease); `usb idle` exits immediately and re-enables Wi-Fi AP. Silent (no `ack`). |
 | `config` | Return the current configuration. |
 | `wifi pass <8-63 chars>` | Store a new AP password. Applied after reboot. ESP32 only. |
+| `wifi sta <ssid>\t<pass>` | ESP32 only. Save 2.4 GHz Wi-Fi STA credentials (tab or space separated; empty pass for open network) and connect, enabling `http://cpr-trainer.local`. |
+| `wifi sta clear` | ESP32 only. Remove saved Wi-Fi STA credentials and return to Soft AP mode. |
+| `wifi status` | ESP32 only. Reply with current link mode and IP (`sta <ip>`, `ap 192.168.4.1`, `connecting <ssid>`, `ble`, `usb`, or `off`). |
 
 `set th` takes exactly six decimal values in this order: good, deep, over,
 contact, recoil, filter alpha. `set <key>` takes one value and keeps the other
@@ -396,8 +422,8 @@ events.
 
 ```
 {"ty":"diag","up":312,"rx":0,"rxBad":0,"qDrop":0,"sSkip":0,"fDrop":0,
- "sps":10,"heap":180000,"ser":1,"hx":1,"wifi":1,"hxs":0,"hxRaw":123456,
- "hxOff":123400,"hxSc":10000.0,"hxRst":0}
+ "sps":10,"heap":180000,"ser":1,"hx":1,"wifi":1,"sta":0,"ble":0,"hxs":0,
+ "hxRaw":123456,"hxOff":123400,"hxSc":10000.0,"hxRst":0}
 ```
 
 | Field | Meaning |
@@ -412,7 +438,9 @@ events.
 | `heap` | free heap in bytes |
 | `ser` | USB output streaming is on (`1`) or off (`0`) |
 | `hx` | HX711 is present (`1`) or not (`0`) |
-| `wifi` | Wi-Fi AP is on (`1`) or off (`0`, e.g. while in USB web mode) |
+| `wifi` | Wi-Fi radio (STA or AP) is on (`1`) or off (`0`, e.g. while in USB or BLE mode) |
+| `sta` | Wi-Fi STA is connected (`1`) or not (`0`) |
+| `ble` | BLE client is connected (`1`) or not (`0`) |
 | `hxs` | HX711 health status (`0` OK, `1` not found, `2` recovering/taring, `3` zero-check failed) |
 | `hxRaw` | latest raw 24-bit ADC reading from the HX711 |
 | `hxOff` | active HX711 tare offset in ADC counts |
